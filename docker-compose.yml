@@ -1,0 +1,33 @@
+## `docker-compose.yml`  – Dev **and** single‑node prod
+# ────────────────────────────────────────────────────────────────────────────
+# This file defines a single service, `api`, which runs the FastAPI app.
+version: "3.9"
+services:
+  api:
+    build: .
+    container_name: vt-proxy-api
+    env_file: backend/.env      # ← keep secrets outside images
+    ports:
+      - "8686:8686"            # host:container
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8686/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # uncomment for live‑reload in dev
+    # volumes:
+    #   - ./backend:/app/backend:ro
+
+  # ─── optional reverse proxy (Traefik) ───
+  # traefik:
+  #   image: traefik:v3.0
+  #   command:
+  #     - "--api.insecure=true"
+  #     - "--providers.docker=true"
+  #     - "--entrypoints.web.address=:80"
+  #   ports:
+  #     - "80:80"
+  #     - "8080:8080"   # dashboard
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro

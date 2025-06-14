@@ -1,0 +1,6 @@
+.venv
+.env
+# Ignore Python cache files and other unnecessary files
+__pycache__/
+*.py[cod]
+*.log

@@ -1,0 +1,14 @@
+## `.dockerignore`
+# Ignore Python cache files and other unnecessary files
+# Ignore Docker-related files
+__pycache__/
+*.py[cod]
+*.log
+*.sqlite3
+*.env          # local secrets - *never* copy into image
+.git
+.vscode
+.idea
+*.pytest_cache
+.build
+.dist
