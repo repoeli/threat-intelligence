@@ -32,3 +32,25 @@ start http://localhost:8686/docs
 7. **Extensible** – Traefik snippet shows how to front the API with TLS.
 
 > With this you can build & push once, then run the same immutable image on any orchestrator without tweaks.
+
+# 📁 Project Layout – v2 (future‑ready SaaS)
+.
+├── backend/
+│   ├── app/
+│   │   ├── main.py                       # FastAPI API‑gateway (async) – port via $PORT (default 8686)
+│   │   ├── db.py                         # SQLModel engine / session
+│   │   ├── auth/                         # (placeholder for OAuth2/JWT & Stripe sync)
+│   │   │   ├── __init__.py               # to be implemented next stage
+│   │   ├── services/
+│   │   │   ├── virustotal_service.py     # Async, per‑user RL, Redis
+│   │   │   └── __init__.py
+│   │   ├── clients/virustotal_client.py  # Async httpx wrapper (free tier)
+│   │   ├── utils/indicator.py            # IoC detection (extensible)
+│   │   ├── models.py                     # Pydantic & SQLModel schemas
+│   │   └── __init__.py
+│   └── requirements.txt
+├── migrations/                           # Alembic (empty for now)
+├── Dockerfile                            # 🐳 multi‑stage, JSON‑exec, non‑root
+├── docker-compose.yml                    # API + Postgres + Redis
+├── .dockerignore
+└── README.md

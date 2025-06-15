@@ -5,17 +5,29 @@ version: "3.9"
 services:
   api:
     build: .
-    container_name: vt-proxy-api
-    env_file: backend/.env      # ← keep secrets outside images
-    ports:
-      - "8686:8686"            # host:container
+    env_file: backend/.env
+    ports: ["8686:8686"]
+    depends_on: [db, redis]
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8686/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-    # uncomment for live‑reload in dev
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: vtproxy
+      POSTGRES_USER: vtproxy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes: [db-data:/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    volumes: [redis-data:/data]
+volumes:
+  db-data: {}
+  redis-data: {}
+    # uncomment for live-reload in dev
     # volumes:
     #   - ./backend:/app/backend:ro
 
