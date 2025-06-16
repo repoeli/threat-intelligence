@@ -32,8 +32,8 @@ app.add_middleware(
 @app.exception_handler(HTTPException)
 async def http_exc_handler(_: Request, exc: HTTPException):
     return JSONResponse(
-        exc.status_code,
-        {"error": exc.detail, "ts": datetime.utcnow().isoformat(timespec="seconds")},
+        content={"error": exc.detail, "ts": datetime.utcnow().isoformat(timespec="seconds")},
+        status_code=exc.status_code,
     )
 
 # Placeholder identity (swap with auth later)
@@ -166,12 +166,15 @@ async def vt_generic(body: Dict[str, Any], ident: Dict[str, str] = Depends(get_i
 async def vt_file(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)):
     if determine_indicator_type(req.indicator) != "hash":
         raise HTTPException(400, "indicator must be a file hash")
-    return await vt_call(
-        ident["user_id"],
-        ident["subscription"],
-        "get_file_report",
-        path_params={"file_id": req.indicator},
-    )
+    try:
+        return await vt_call(
+            ident["user_id"],
+            ident["subscription"],
+            "get_file_report",
+            path_params={"file_id": req.indicator},
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"Upstream service error: {exc}")
 
 
 @app.post("/api/virustotal/ip", tags=["virustotal"])
