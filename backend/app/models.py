@@ -27,11 +27,32 @@ class IndicatorType(str, Enum):
     EMAIL = "email"
 
 
+class AnalysisStatus(str, Enum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    QUEUED = "queued"
+
+
 class SubscriptionTier(str, Enum):
     FREE = "free"
     MEDIUM = "medium"
     PLUS = "plus"
     ADMIN = "admin"
+
+
+# ────────────────── Simple Request Models ──────────────────
+class SimpleIndicatorRequest(BaseModel):
+    """Simple indicator request without user requirements"""
+    indicator: str = Field(..., min_length=1, max_length=2048, description="IoC to analyse")
+    include_raw_data: bool = Field(False, description="Include raw API responses")
+    
+    @field_validator('indicator')
+    @classmethod
+    def validate_indicator(cls, v):
+        if not v or v.isspace():
+            raise ValueError('Indicator cannot be empty or whitespace')
+        return v.strip()
 
 
 # ────────────────── Enhanced Request Models ──────────────────
@@ -51,7 +72,10 @@ class IndicatorRequest(BaseModel):
 
 
 class BulkAnalysisRequest(BaseModel):
-    indicators: List[str] = Field(..., min_items=1, max_items=100, description="List of indicators to analyze")
+    """Request model for bulk analysis"""
+    indicators: List[str] = Field(min_length=1, max_length=100, description="List of indicators to analyze")
+    priority: str = Field("normal", description="Analysis priority")
+    webhook_url: Optional[str] = Field(None, description="Webhook for completion notification")
     user_id: str = Field(..., description="User UUID", pattern=r"^[a-f0-9\-]{36}$")
     subscription_level: SubscriptionTier = SubscriptionTier.FREE
     include_raw_data: bool = False
@@ -102,11 +126,11 @@ class AnalysisResponse(BaseModel):
 
 
 class BulkAnalysisResponse(BaseModel):
-    total_analyzed: int
-    successful: int
-    failed: int
-    results: List[AnalysisResponse]
-    analysis_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    """Response model for bulk analysis"""
+    job_id: str = Field(description="Bulk analysis job ID")
+    total_indicators: int = Field(description="Total number of indicators")
+    estimated_completion: datetime = Field(description="Estimated completion time")
+    status_url: str = Field(description="URL to check job status")
 
 
 class VizResponse(BaseModel):
@@ -189,3 +213,67 @@ class UserResponse(BaseModel):
     subscription_level: SubscriptionTier
     is_active: bool = True
     created_at: Optional[datetime] = None
+
+
+# ────────────────── Enhanced Analysis Models ──────────────────
+class ThreatScore(BaseModel):
+    """Unified threat scoring model"""
+    overall_score: float = Field(ge=0.0, le=1.0, description="Overall threat score (0-1)")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the score")
+    threat_level: ThreatLevel = Field(description="Categorical threat level")
+    factors: Dict[str, float] = Field(default_factory=dict, description="Contributing factors")
+    
+    @field_validator('overall_score', 'confidence')
+    @classmethod
+    def validate_score_range(cls, v):
+        return round(v, 3)  # Limit to 3 decimal places
+
+
+class VendorResult(BaseModel):
+    """Individual vendor/engine analysis result"""
+    vendor: str = Field(description="Vendor name")
+    result: str = Field(description="Detection result")
+    category: Optional[str] = Field(None, description="Threat category")
+    engine_version: Optional[str] = Field(None, description="Engine version")
+
+
+class AnalysisMetadata(BaseModel):
+    """Analysis metadata and timestamps"""
+    analyzed_at: datetime = Field(default_factory=datetime.utcnow)
+    analysis_id: Optional[str] = Field(None, description="Unique analysis identifier")
+    sources_used: List[str] = Field(default_factory=list)
+    processing_time_ms: Optional[int] = Field(None, description="Processing time in milliseconds")
+    cached: bool = Field(False, description="Whether result was cached")
+
+
+class ThreatIntelligenceResult(BaseModel):
+    """Enhanced threat intelligence analysis result"""
+    indicator: str = Field(description="The analyzed indicator")
+    indicator_type: IndicatorType = Field(description="Type of indicator")
+    status: AnalysisStatus = Field(description="Analysis status")
+    
+    # Core threat assessment
+    threat_score: ThreatScore = Field(description="Unified threat scoring")
+    
+    # Vendor results
+    vendor_results: List[VendorResult] = Field(default_factory=list)
+    detection_ratio: str = Field("0/0", description="Detections vs total engines")
+    
+    # Intelligence enrichment
+    reputation: Optional[str] = Field(None, description="Reputation category")
+    categories: List[str] = Field(default_factory=list, description="Threat categories")
+    tags: List[str] = Field(default_factory=list, description="Associated tags")
+    
+    # Timeline data
+    first_seen: Optional[datetime] = Field(None, description="First seen timestamp")
+    last_seen: Optional[datetime] = Field(None, description="Last seen timestamp")
+    
+    # Additional context
+    geolocation: Optional[Dict[str, Any]] = Field(None, description="Geographic information")
+    whois_data: Optional[Dict[str, Any]] = Field(None, description="WHOIS information")
+    
+    # Metadata
+    metadata: AnalysisMetadata = Field(description="Analysis metadata")
+    
+    # Raw responses (for debugging/advanced users)
+    raw_responses: Dict[str, Any] = Field(default_factory=dict, description="Raw API responses")

@@ -12,8 +12,17 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .models import IndicatorRequest, VizResponse
+from .models import (
+    IndicatorRequest, 
+    SimpleIndicatorRequest,
+    VizResponse, 
+    ThreatIntelligenceResult,
+    BulkAnalysisRequest,
+    BulkAnalysisResponse,
+    IndicatorType
+)
 from .services.virustotal_service import vt_call
+from .services.threat_analysis import threat_analysis_service
 from .utils.indicator import determine_indicator_type
 
 load_dotenv()
@@ -274,11 +283,26 @@ async def urlscan_result(scan_id: str):
 
 
 # ───────────────────────── Enhanced Analyze route ───────────────────────────
-@app.post("/analyze", tags=["analysis"])
-async def analyze(
+@app.post("/analyze", response_model=ThreatIntelligenceResult, tags=["analysis"])
+async def analyze_enhanced(
+    req: SimpleIndicatorRequest, 
+    ident: Dict[str, str] = Depends(get_identity)
+) -> ThreatIntelligenceResult:
+    """Enhanced unified threat intelligence analysis"""
+    return await threat_analysis_service.analyze_indicator(
+        indicator=req.indicator,
+        user_id=ident["user_id"],
+        subscription=ident["subscription"],
+        include_raw=req.include_raw_data
+    )
+
+
+# ───────────────────────── Legacy Analyze route (for backward compatibility) ───────────────────────────
+@app.post("/analyze/legacy", tags=["analysis"])
+async def analyze_legacy(
     req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)
 ):
-    """Enhanced analysis endpoint with enriched response"""
+    """Legacy analysis endpoint with raw response format"""
     typ = determine_indicator_type(req.indicator)
     if typ == "unknown":
         raise HTTPException(400, "unsupported indicator")
@@ -404,30 +428,29 @@ async def visualize(
 
 
 # ───────────────────────── Analysis Endpoints ─────────────────────────────
-@app.post("/analyze/ip/{ip}", tags=["analysis"])
+@app.post("/analyze/ip/{ip}", response_model=ThreatIntelligenceResult, tags=["analysis"])
 async def analyze_ip(ip: str, ident: Dict[str, str] = Depends(get_identity)):
     """Analyze IP address"""
-    # Create a request object for the existing analyze function
-    req = IndicatorRequest(indicator=ip)
-    return await analyze(req, ident)
+    req = SimpleIndicatorRequest(indicator=ip)
+    return await analyze_enhanced(req, ident)
 
-@app.post("/analyze/domain/{domain}", tags=["analysis"])
+@app.post("/analyze/domain/{domain}", response_model=ThreatIntelligenceResult, tags=["analysis"])
 async def analyze_domain(domain: str, ident: Dict[str, str] = Depends(get_identity)):
     """Analyze domain"""
-    req = IndicatorRequest(indicator=domain)
-    return await analyze(req, ident)
+    req = SimpleIndicatorRequest(indicator=domain)
+    return await analyze_enhanced(req, ident)
 
-@app.post("/analyze/url/{url:path}", tags=["analysis"])
+@app.post("/analyze/url/{url:path}", response_model=ThreatIntelligenceResult, tags=["analysis"])
 async def analyze_url(url: str, ident: Dict[str, str] = Depends(get_identity)):
     """Analyze URL"""
-    req = IndicatorRequest(indicator=url)
-    return await analyze(req, ident)
+    req = SimpleIndicatorRequest(indicator=url)
+    return await analyze_enhanced(req, ident)
 
-@app.post("/analyze/hash/{hash}", tags=["analysis"])
+@app.post("/analyze/hash/{hash}", response_model=ThreatIntelligenceResult, tags=["analysis"])
 async def analyze_hash(hash: str, ident: Dict[str, str] = Depends(get_identity)):
     """Analyze file hash"""
-    req = IndicatorRequest(indicator=hash)
-    return await analyze(req, ident)
+    req = SimpleIndicatorRequest(indicator=hash)
+    return await analyze_enhanced(req, ident)
 
 @app.post("/analyze/batch", tags=["analysis"])
 async def analyze_batch(
@@ -446,17 +469,18 @@ async def analyze_batch(
             if not indicator_value:
                 continue
                 
-            req = IndicatorRequest(indicator=indicator_value)
-            result = await analyze(req, ident)
+            req = SimpleIndicatorRequest(indicator=indicator_value)
+            result = await analyze_enhanced(req, ident)
             results.append({
                 "indicator": indicator_value,
                 "type": indicator_data.get("type"),
-                **result
+                "analysis": result.dict()
             })
         except Exception as e:
             results.append({
                 "indicator": indicator_data.get("value"),
-                "type": indicator_data.get("type"),                "error": str(e)
+                "type": indicator_data.get("type"),
+                "error": str(e)
             })
     
     return {"results": results}
