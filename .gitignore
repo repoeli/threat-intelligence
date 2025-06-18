@@ -5,3 +5,5 @@ __pycache__/
 *.py[cod]
 *.log
 *5.0*
+.pytest_cache/
+#test files

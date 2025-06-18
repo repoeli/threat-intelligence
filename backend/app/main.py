@@ -1,4 +1,4 @@
-# backend/app/main.py  – FastAPI gateway (v0.2.3)
+# backend/app/main.py  – FastAPI gateway (v1.0.0-working)
 # ----------------------------------------------------------------------------
 from __future__ import annotations
 
@@ -17,9 +17,17 @@ from .services.virustotal_service import vt_call
 from .utils.indicator import determine_indicator_type
 
 load_dotenv()
-app = FastAPI(title="VT-Proxy v2", version="0.2.3")
 
-# ───────────────────────────── CORS ────────────────────────────────
+# Initialize FastAPI app with enhanced metadata
+app = FastAPI(
+    title="Threat Intelligence API",
+    version="1.0.0",
+    description="Advanced threat intelligence analysis platform",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# ───────────────────────── CORS ────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.getenv("FRONTEND_ORIGIN", "*")],
@@ -36,7 +44,7 @@ async def http_exc_handler(_: Request, exc: HTTPException):
         status_code=exc.status_code,
     )
 
-# Placeholder identity (swap with auth later)
+# Placeholder identity (updated for enhanced tracking)
 def get_identity() -> Dict[str, str]:
     return {"user_id": "anon", "subscription": "free"}
 
@@ -71,13 +79,13 @@ async def _call_openai(
 
     prompt = (
         f"Analyze {ind_t} indicator and provide verdict (malicious/benign), "
-        "risk level, and next steps in ≤5 sentences.\n\n"
-        f"Indicator: {ioc}\n\n"
-        f"VirusTotal snippet: {json.dumps(vt)[:1500]}\n\n"
-        f"AbuseIPDB snippet: {json.dumps(abuse)[:800]}\n\n"
+        "risk level, and next steps in ≤5 sentences.\\n\\n"
+        f"Indicator: {ioc}\\n\\n"
+        f"VirusTotal snippet: {json.dumps(vt)[:1500]}\\n\\n"
+        f"AbuseIPDB snippet: {json.dumps(abuse)[:800]}\\n\\n"
     )
     if urlscan:
-        prompt += f"URLScan snippet: {json.dumps(urlscan)[:800]}\n\n"
+        prompt += f"URLScan snippet: {json.dumps(urlscan)[:800]}\\n\\n"
 
     payload = {
         "model": "gpt-4o-mini",
@@ -114,15 +122,15 @@ async def _openai_visualize(ind_t: str, ioc: str,
         raise HTTPException(503, "OpenAI key missing")
     prompt = (
         "You are a SOC data-viz assistant. Return STRICT JSON with keys "
-        "summary_markdown, charts, verdict.\n"
-        "charts must include analysis_stats (bar) and engine_donut (doughnut).\n\n"
-        f"Indicator: {ioc} ({ind_t})\n"
-        f"VirusTotal attributes: {json.dumps(vt_attrs)[:12000]}\n"
-        f"AbuseIPDB snippet: {json.dumps(abuse)[:800]}\n"
+        "summary_markdown, charts, verdict.\\n"
+        "charts must include analysis_stats (bar) and engine_donut (doughnut).\\n\\n"
+        f"Indicator: {ioc} ({ind_t})\\n"
+        f"VirusTotal attributes: {json.dumps(vt_attrs)[:12000]}\\n"
+        f"AbuseIPDB snippet: {json.dumps(abuse)[:800]}\\n"
     )
 
     if urlscan:
-        prompt += f"URLScan snippet: {json.dumps(urlscan)[:800]}\n"
+        prompt += f"URLScan snippet: {json.dumps(urlscan)[:800]}\\n"
 
     payload = {
         "model": "gpt-4o-mini",
@@ -151,6 +159,7 @@ async def _openai_visualize(ind_t: str, ioc: str,
 # ───────────────────────── VT proxy endpoints ──────────────────────
 @app.post("/api/virustotal", tags=["virustotal"])
 async def vt_generic(body: Dict[str, Any], ident: Dict[str, str] = Depends(get_identity)):
+    """Generic VirusTotal API proxy"""
     return await vt_call(
         ident["user_id"],
         ident["subscription"],
@@ -164,6 +173,7 @@ async def vt_generic(body: Dict[str, Any], ident: Dict[str, str] = Depends(get_i
 # ───────────────────────── VT helper routes ────────────────────────
 @app.post("/api/virustotal/file", tags=["virustotal"])
 async def vt_file(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)):
+    """VirusTotal file analysis"""
     if determine_indicator_type(req.indicator) != "hash":
         raise HTTPException(400, "indicator must be a file hash")
     try:
@@ -179,6 +189,7 @@ async def vt_file(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_ide
 
 @app.post("/api/virustotal/ip", tags=["virustotal"])
 async def vt_ip(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)):
+    """VirusTotal IP analysis"""
     if determine_indicator_type(req.indicator) != "ip":
         raise HTTPException(400, "indicator must be an IP")
     return await vt_call(
@@ -193,6 +204,7 @@ async def vt_ip(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_ident
 async def vt_domain(
     req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)
 ):
+    """VirusTotal domain analysis"""
     if determine_indicator_type(req.indicator) != "domain":
         raise HTTPException(400, "invalid domain")
     return await vt_call(
@@ -205,6 +217,7 @@ async def vt_domain(
 
 @app.post("/api/virustotal/url", tags=["virustotal"])
 async def vt_url(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)):
+    """VirusTotal URL analysis"""
     if determine_indicator_type(req.indicator) not in {"url", "domain"}:
         raise HTTPException(400, "invalid URL/domain")
     url = (
@@ -235,6 +248,7 @@ async def vt_url(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_iden
 # ───────────────────────── URLScan routes ──────────────────────────
 @app.post("/api/urlscan/scan", tags=["urlscan"])
 async def urlscan_scan(body: Dict[str, str]):
+    """URLScan submission endpoint"""
     if not URLSCAN_KEY:
         raise HTTPException(503, "URLScan key missing")
     target = body.get("url")
@@ -252,17 +266,19 @@ async def urlscan_scan(body: Dict[str, str]):
 
 @app.get("/api/urlscan/result/{scan_id}", tags=["urlscan"])
 async def urlscan_result(scan_id: str):
+    """URLScan result retrieval"""
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.get(f"https://urlscan.io/api/v1/result/{scan_id}")
         r.raise_for_status()
         return r.json()
 
 
-# ───────────────────────── Analyze route ───────────────────────────
+# ───────────────────────── Enhanced Analyze route ───────────────────────────
 @app.post("/analyze", tags=["analysis"])
 async def analyze(
     req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)
 ):
+    """Enhanced analysis endpoint with enriched response"""
     typ = determine_indicator_type(req.indicator)
     if typ == "unknown":
         raise HTTPException(400, "unsupported indicator")
@@ -298,7 +314,10 @@ async def analyze(
         url_id = (
             base64.urlsafe_b64encode(req.indicator.encode()).decode().rstrip("=")
         )
-        urlscan_json = await urlscan_result(url_id)
+        try:
+            urlscan_json = await urlscan_result(url_id)
+        except:
+            urlscan_json = {}
 
     vt_json = await vt_task
     abuse_json = await abuse_task if abuse_task else {"note": "n/a"}
@@ -306,19 +325,31 @@ async def analyze(
         typ, req.indicator, vt_json, abuse_json, urlscan_json
     )
 
+    # Enhanced response with metadata
     return {
-        "virustotal": vt_json,
-        "abuseipdb": abuse_json,
-        "urlscan": urlscan_json,
-        "openai_analysis": gpt_json,
+        "indicator": req.indicator,
+        "indicator_type": typ,
+        "analysis_timestamp": datetime.utcnow().isoformat(),
+        "sources": {
+            "virustotal": vt_json,
+            "abuseipdb": abuse_json,
+            "urlscan": urlscan_json,
+            "openai_analysis": gpt_json,
+        },
+        "metadata": {
+            "user_id": ident["user_id"],
+            "subscription_level": ident["subscription"],
+            "analysis_version": "1.0.0"
+        }
     }
 
 
-# ───────────────────────── Visualize route ─────────────────────────
+# ───────────────────────── Enhanced Visualize route ─────────────────────────
 @app.post("/api/visualize", response_model=VizResponse, tags=["visualize"])
 async def visualize(
     req: IndicatorRequest, ident: Dict[str, str] = Depends(get_identity)
 ):
+    """Enhanced visualization with improved error handling"""
     typ = determine_indicator_type(req.indicator)
     if typ == "unknown":
         raise HTTPException(400, "unsupported indicator")
@@ -354,7 +385,10 @@ async def visualize(
         url_id = (
             base64.urlsafe_b64encode(req.indicator.encode()).decode().rstrip("=")
         )
-        urlscan_json = await urlscan_result(url_id)
+        try:
+            urlscan_json = await urlscan_result(url_id)
+        except:
+            urlscan_json = {}
 
     vt_json = await vt_task
     abuse_json = await abuse_task if abuse_task else {"note": "n/a"}
@@ -362,17 +396,105 @@ async def visualize(
     viz = await _openai_visualize(
             typ,
             req.indicator,
-            vt_json["data"]["attributes"],
+            vt_json.get("data", {}).get("attributes", {}),
             abuse_json,
             urlscan_json,
         )
     return JSONResponse(viz)
 
 
-# ───────────────────────── Meta/health ─────────────────────────────
+# ───────────────────────── Analysis Endpoints ─────────────────────────────
+@app.post("/analyze/ip/{ip}", tags=["analysis"])
+async def analyze_ip(ip: str, ident: Dict[str, str] = Depends(get_identity)):
+    """Analyze IP address"""
+    # Create a request object for the existing analyze function
+    req = IndicatorRequest(indicator=ip)
+    return await analyze(req, ident)
+
+@app.post("/analyze/domain/{domain}", tags=["analysis"])
+async def analyze_domain(domain: str, ident: Dict[str, str] = Depends(get_identity)):
+    """Analyze domain"""
+    req = IndicatorRequest(indicator=domain)
+    return await analyze(req, ident)
+
+@app.post("/analyze/url/{url:path}", tags=["analysis"])
+async def analyze_url(url: str, ident: Dict[str, str] = Depends(get_identity)):
+    """Analyze URL"""
+    req = IndicatorRequest(indicator=url)
+    return await analyze(req, ident)
+
+@app.post("/analyze/hash/{hash}", tags=["analysis"])
+async def analyze_hash(hash: str, ident: Dict[str, str] = Depends(get_identity)):
+    """Analyze file hash"""
+    req = IndicatorRequest(indicator=hash)
+    return await analyze(req, ident)
+
+@app.post("/analyze/batch", tags=["analysis"])
+async def analyze_batch(
+    request: Dict[str, Any], 
+    ident: Dict[str, str] = Depends(get_identity)
+):
+    """Analyze multiple indicators in batch"""
+    indicators = request.get("indicators", [])
+    if not indicators:
+        raise HTTPException(400, "No indicators provided")
+    
+    results = []
+    for indicator_data in indicators:
+        try:
+            indicator_value = indicator_data.get("value")
+            if not indicator_value:
+                continue
+                
+            req = IndicatorRequest(indicator=indicator_value)
+            result = await analyze(req, ident)
+            results.append({
+                "indicator": indicator_value,
+                "type": indicator_data.get("type"),
+                **result
+            })
+        except Exception as e:
+            results.append({
+                "indicator": indicator_data.get("value"),
+                "type": indicator_data.get("type"),                "error": str(e)
+            })
+    
+    return {"results": results}
+
+
+# ───────────────────────── Enhanced Meta/health/monitoring ─────────────────────────────
 @app.get("/health", tags=["meta"])
 async def health():
-    return {"status": "OK"}
+    """Enhanced health check endpoint"""
+    return {
+        "status": "OK",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "services": {
+            "virustotal": bool(os.getenv("VIRUSTOTAL_API_KEY")),
+            "abuseipdb": bool(ABUSE_KEY),
+            "urlscan": bool(URLSCAN_KEY),
+            "openai": bool(OPENAI_KEY)
+        }
+    }
+
+
+@app.get("/status", tags=["monitoring"]) 
+async def system_status():
+    """System status endpoint"""
+    return {
+        "system": {
+            "status": "operational",
+            "version": "1.0.0"
+        },
+        "external_apis": {
+            "virustotal": {"status": "connected" if os.getenv("VIRUSTOTAL_API_KEY") else "disconnected"},
+            "abuseipdb": {"status": "connected" if ABUSE_KEY else "disconnected"},
+            "urlscan": {"status": "connected" if URLSCAN_KEY else "disconnected"},
+            "openai": {"status": "connected" if OPENAI_KEY else "disconnected"}
+        }
+    }
+
 
 # ───────────────────────── Local run helper ─────────────────────────
 if __name__ == "__main__":

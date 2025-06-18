@@ -1,14 +1,9 @@
-"""Facade over VirusTotalClient + Redis‑based per‑user daily quotas.
-
-Uses **redis-py’s built‑in asyncio API** (`import redis.asyncio as redis`), so we
-no longer depend on the deprecated *aioredis* package.
-"""
+"""Facade over VirusTotalClient + Redis‑based per‑user daily quotas."""
 from __future__ import annotations
-import asyncio
 import logging, os, time
 from typing import Any, Dict, Optional
 import redis.asyncio as redis
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 from ..clients.virustotal_client import APIError, RateLimitError, VirusTotalClient
 
 logger = logging.getLogger("vt_service")
@@ -49,14 +44,3 @@ async def vt_call(uid: str, tier: str, name: str, *, path_params: Optional[Dict[
     except APIError as exc:
         logger.error("VT error %s", exc)
         raise HTTPException(502, str(exc))
-
-async def main():
-    async def _hit():
-        response = await vt_call("some_uid", "free", "some_name")
-        assert response.status_code == status.HTTP_200_OK
-
-    tasks = [asyncio.create_task(_hit()) for _ in range(10)]
-    responses = await asyncio.gather(*tasks)
-    assert all(r.status_code == status.HTTP_200_OK for r in responses)
-
-# ----------------------------------------------------------------------------
