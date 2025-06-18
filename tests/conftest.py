@@ -153,20 +153,17 @@ def mock_all_services(mock_vt, mock_abuseipdb, mock_openai):
 @pytest.fixture
 def mock_auth_user():
     """Mock authenticated regular user for testing"""
-    from backend.app.auth import User, UserRole
-    from datetime import datetime
+    from backend.app.models import SubscriptionTier
     
-    user = User(
-        username="testuser",
-        email="test@example.com",
-        password_hash="hashed_password",
-        role=UserRole.USER,
-        is_active=True,
-        created_at=datetime.utcnow()
-    )
+    user_data = {
+        "user_id": "test_user",
+        "subscription": "free",
+        "permissions": [],
+        "subscription_tier": SubscriptionTier.FREE
+    }
     
-    with patch('backend.app.main.get_current_user', return_value=user):
-        yield user
+    with patch('backend.app.main.get_current_user', return_value=user_data):
+        yield user_data
 
 
 @pytest.fixture
@@ -192,21 +189,18 @@ def mock_auth_analyst():
 @pytest.fixture
 def mock_auth_admin():
     """Mock authenticated admin user for testing"""
-    from backend.app.auth import User, UserRole
-    from datetime import datetime
+    from backend.app.models import SubscriptionTier
     
-    user = User(
-        username="admin",
-        email="admin@example.com",
-        password_hash="hashed_password", 
-        role=UserRole.ADMIN,
-        is_active=True,
-        created_at=datetime.utcnow()
-    )
+    admin_data = {
+        "user_id": "admin_user",
+        "subscription": "admin",
+        "permissions": ["admin", "read", "write"],
+        "subscription_tier": SubscriptionTier.PLUS
+    }
     
-    with patch('backend.app.main.get_current_user', return_value=user), \
+    with patch('backend.app.main.get_current_user', return_value=admin_data), \
          patch('backend.app.main.require_permission', return_value=True):
-        yield user
+        yield admin_data
 
 
 @pytest.fixture

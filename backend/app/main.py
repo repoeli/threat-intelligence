@@ -349,6 +349,167 @@ async def urlscan_result(scan_id: str):
         return r.json()
 
 
+# ───────────────────────── Premium Analysis Endpoints (JWT Protected) ─────────────────────────────
+
+@app.post("/analyze/premium", response_model=ThreatIntelligenceResult, tags=["premium-analysis"])
+async def analyze_premium(
+    req: SimpleIndicatorRequest, 
+    current_user: Dict[str, str] = Depends(require_medium)
+) -> ThreatIntelligenceResult:
+    """Premium threat intelligence analysis (requires Medium+ subscription)"""
+    # Track API usage
+    await auth_service.update_api_usage(current_user["user_id"])
+    
+    return await threat_analysis_service.analyze_indicator(
+        indicator=req.indicator,
+        user_id=current_user["user_id"],
+        subscription=current_user["subscription"],
+        include_raw=req.include_raw_data or True,  # Premium users get raw data by default
+        enhanced_analysis=True  # Premium analysis features
+    )
+
+
+@app.post("/analyze/enterprise", response_model=ThreatIntelligenceResult, tags=["enterprise-analysis"])
+async def analyze_enterprise(
+    req: SimpleIndicatorRequest, 
+    current_user: Dict[str, str] = Depends(require_plus)
+) -> ThreatIntelligenceResult:
+    """Enterprise threat intelligence analysis (requires Plus+ subscription)"""
+    # Track API usage
+    await auth_service.update_api_usage(current_user["user_id"])
+    
+    return await threat_analysis_service.analyze_indicator(
+        indicator=req.indicator,
+        user_id=current_user["user_id"],
+        subscription=current_user["subscription"],
+        include_raw=True,
+        enhanced_analysis=True,
+        deep_analysis=True  # Enterprise-only deep analysis
+    )
+
+
+@app.post("/analyze/batch/premium", tags=["premium-analysis"])
+async def analyze_batch_premium(
+    request: BulkAnalysisRequest,
+    current_user: Dict[str, str] = Depends(require_medium)
+) -> BulkAnalysisResponse:
+    """Premium batch analysis (requires Medium+ subscription)"""
+    # Check batch size limits based on subscription
+    subscription_limits = {
+        "medium": 10,
+        "plus": 50,
+        "admin": 100
+    }
+    
+    max_batch_size = subscription_limits.get(current_user["subscription"], 5)
+    if len(request.indicators) > max_batch_size:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Batch size limit exceeded. {current_user['subscription']} subscription allows max {max_batch_size} indicators"
+        )
+    
+    # Track API usage
+    await auth_service.update_api_usage(current_user["user_id"])
+    
+    results = []
+    for indicator_data in request.indicators:
+        try:
+            req = SimpleIndicatorRequest(
+                indicator=indicator_data.get("value"),
+                include_raw_data=True
+            )
+            result = await threat_analysis_service.analyze_indicator(
+                indicator=req.indicator,
+                user_id=current_user["user_id"],
+                subscription=current_user["subscription"],
+                include_raw=True,
+                enhanced_analysis=True
+            )
+            results.append({
+                "indicator": req.indicator,
+                "type": indicator_data.get("type"),
+                "analysis": result.dict(),
+                "status": "success"
+            })
+        except Exception as e:
+            results.append({
+                "indicator": indicator_data.get("value"),
+                "type": indicator_data.get("type"),
+                "error": str(e),
+                "status": "failed"
+            })
+    
+    return BulkAnalysisResponse(
+        results=results,
+        total_processed=len(results),
+        successful=len([r for r in results if r.get("status") == "success"]),
+        failed=len([r for r in results if r.get("status") == "failed"]),
+        user_id=current_user["user_id"],
+        subscription_level=current_user["subscription"]
+    )
+
+
+# ───────────────────────── Protected Analysis History ─────────────────────────────
+
+@app.get("/analyze/history", tags=["user-analytics"])
+async def get_analysis_history(
+    limit: int = 10,
+    offset: int = 0,
+    current_user: Dict[str, str] = Depends(get_current_user)
+):
+    """Get user's analysis history (requires authentication)"""
+    # This would typically query a database for user's analysis history
+    # For now, return a mock response showing the concept
+    return {
+        "user_id": current_user["user_id"],
+        "subscription": current_user["subscription"],
+        "total_analyses": 42,  # Mock data
+        "analyses": [
+            {
+                "id": f"analysis_{i}",
+                "indicator": f"example{i}.com",
+                "type": "domain",
+                "threat_score": 0.1 + (i * 0.1),
+                "analyzed_at": f"2025-06-{18-i}T12:00:00Z"
+            }
+            for i in range(min(limit, 5))  # Mock recent analyses
+        ],
+        "pagination": {
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < 42
+        }
+    }
+
+
+@app.get("/analyze/stats", tags=["user-analytics"])
+async def get_user_analysis_stats(
+    current_user: Dict[str, str] = Depends(get_current_user)
+):
+    """Get user's analysis statistics (requires authentication)"""
+    return {
+        "user_id": current_user["user_id"],
+        "subscription": current_user["subscription"],
+        "usage_stats": {
+            "total_analyses": 42,
+            "this_month": 15,
+            "this_week": 3,
+            "today": 1
+        },
+        "subscription_limits": {
+            "daily_limit": 100 if current_user["subscription"] in ["plus", "admin"] else 20,
+            "monthly_limit": 3000 if current_user["subscription"] in ["plus", "admin"] else 500,
+            "batch_size_limit": 50 if current_user["subscription"] in ["plus", "admin"] else 10
+        },
+        "feature_access": {
+            "raw_data": current_user["subscription"] in ["medium", "plus", "admin"],
+            "batch_analysis": current_user["subscription"] in ["medium", "plus", "admin"],
+            "deep_analysis": current_user["subscription"] in ["plus", "admin"],
+            "priority_processing": current_user["subscription"] in ["plus", "admin"]
+        }
+    }
+
+
 # ───────────────────────── Enhanced Analyze route ───────────────────────────
 @app.post("/analyze", response_model=ThreatIntelligenceResult, tags=["analysis"])
 async def analyze_enhanced(

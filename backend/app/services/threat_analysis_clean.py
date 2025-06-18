@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 class ThreatAnalysisService:
     """Enhanced threat analysis service with unified scoring"""
     
-    def __init__(self):        self.threat_level_thresholds = {
+    def __init__(self):
+        self.threat_level_thresholds = {
             ThreatLevel.CRITICAL: 0.8,
-            ThreatLevel.HIGH: 0.6,
-            ThreatLevel.MEDIUM: 0.4,
+            ThreatLevel.HIGH: 0.6,            ThreatLevel.MEDIUM: 0.4,
             ThreatLevel.LOW: 0.2,
             ThreatLevel.BENIGN: 0.0
         }
@@ -153,11 +153,12 @@ class ThreatAnalysisService:
             return ThreatIntelligenceResult(
                 indicator=indicator,
                 indicator_type=indicator_type,
-                status=AnalysisStatus.FAILED,                threat_score=ThreatScore(
+                status=AnalysisStatus.FAILED,
+                threat_score=ThreatScore(
                     overall_score=0.0,
                     confidence=0.0,
                     threat_level=ThreatLevel.BENIGN,
-                    factors={"error_score": 0.0}
+                    factors={"error": str(e)}
                 ),
                 metadata=metadata
             )
