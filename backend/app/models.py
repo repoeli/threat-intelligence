@@ -201,6 +201,20 @@ class UserRegistration(BaseModel):
         }
 
 
+class UserLogin(BaseModel):
+    """User login request model"""
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., description="User password")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "email": "user@example.com",
+                "password": "SecurePassword123!"
+            }
+        }
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

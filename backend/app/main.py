@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -19,11 +19,18 @@ from .models import (
     ThreatIntelligenceResult,
     BulkAnalysisRequest,
     BulkAnalysisResponse,
-    IndicatorType
+    IndicatorType,
+    # Authentication models
+    UserRegistration,
+    UserLogin,
+    TokenResponse,
+    UserResponse
 )
 from .services.virustotal_service import vt_call
 from .services.threat_analysis import threat_analysis_service
+from .services.auth_service import auth_service
 from .utils.indicator import determine_indicator_type
+from .auth import get_current_user, get_current_user_optional, require_medium, require_plus, check_rate_limit
 
 load_dotenv()
 
@@ -53,9 +60,69 @@ async def http_exc_handler(_: Request, exc: HTTPException):
         status_code=exc.status_code,
     )
 
-# Placeholder identity (updated for enhanced tracking)
-def get_identity() -> Dict[str, str]:
-    return {"user_id": "anon", "subscription": "free"}
+# ───────────────────────── Authentication Endpoints ─────────────────────────
+@app.post("/auth/register", response_model=dict, tags=["authentication"])
+async def register(user_data: UserRegistration):
+    """Register a new user"""
+    try:
+        user_response, token_response = await auth_service.register_user(user_data)
+        return {
+            "message": "User registered successfully",
+            "user": user_response.dict(),
+            "token": token_response.dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+
+@app.post("/auth/login", response_model=dict, tags=["authentication"])
+async def login(login_data: UserLogin):
+    """Authenticate user and return access token"""
+    try:
+        user_response, token_response = await auth_service.login_user(login_data)
+        return {
+            "message": "Login successful",
+            "user": user_response.dict(),
+            "token": token_response.dict()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {str(e)}"
+        )
+
+
+@app.get("/auth/profile", response_model=UserResponse, tags=["authentication"])
+async def get_profile(current_user: Dict = Depends(get_current_user)):
+    """Get current user profile (requires authentication)"""
+    try:
+        return await auth_service.get_user_profile(current_user["user_id"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch profile: {str(e)}"
+        )
+
+
+@app.get("/auth/stats", tags=["authentication"])
+async def get_auth_stats(current_user: Dict = Depends(require_plus)):
+    """Get authentication service statistics (plus users only)"""
+    return auth_service.get_user_stats()
+
+
+# Updated identity function using optional authentication
+async def get_identity(user: Dict[str, str] = Depends(get_current_user_optional)) -> Dict[str, str]:
+    """Get current user identity with optional authentication"""
+    return user
 
 # ─────────────────────────── Config keys ──────────────────────────
 ABUSE_KEY = os.getenv("ABUSEIPDB_API_KEY")

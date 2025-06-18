@@ -210,47 +210,6 @@ def mock_auth_admin():
 
 
 @pytest.fixture
-def mock_intelligence_fusion():
-    """Mock intelligence fusion engine for testing"""
-    from backend.app.intelligence.fusion import FusionResult
-    from backend.app.models import ThreatVerdict, RiskLevel
-    
-    mock_result = FusionResult(
-        verdict=ThreatVerdict.BENIGN,
-        risk_level=RiskLevel.LOW,
-        confidence_score=0.85,
-        summary="Test analysis indicates benign indicator",
-        recommendations=["Continue monitoring", "No immediate action required"],
-        consensus_score=0.9,
-        source_count=3
-    )
-    
-    with patch('backend.app.main.intelligence_fusion.fuse_intelligence', return_value=mock_result):
-        yield mock_result
-
-
-@pytest.fixture
-def mock_ml_classifier():
-    """Mock ML classifier for testing"""
-    mock_features = {
-        "malicious_ratio": 0.1,
-        "reputation_score": 5,
-        "total_engines": 50,
-        "domain_length": 11
-    }
-    
-    mock_prediction = {
-        "probability_malicious": 0.15,
-        "classification": "benign",
-        "confidence": 0.9
-    }
-    
-    with patch('backend.app.main.ml_classifier.extract_features', return_value=mock_features), \
-         patch('backend.app.main.ml_classifier.predict_threat', return_value=mock_prediction):
-        yield {"features": mock_features, "prediction": mock_prediction}
-
-
-@pytest.fixture
 def mock_database():
     """Mock database operations for testing"""
     # This would mock database operations if we had a real database
@@ -382,13 +341,7 @@ def sample_analysis_data():
                 "abuseConfidencePercentage": 0,
                 "countryCode": "US",
                 "totalReports": 0,
-                "isPublic": False
-            }
+                "isPublic": False            }
         },
-        "openai_response": "Analysis indicates this is a benign indicator with low risk profile",
-        "expected_fusion_result": {
-            "verdict": "benign",
-            "risk_level": "low",
-            "confidence_score": 0.85
-        }
+        "openai_response": "Analysis indicates this is a benign indicator with low risk profile"
     }

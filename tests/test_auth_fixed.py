@@ -8,153 +8,163 @@ from unittest.mock import AsyncMock, patch
 import httpx
 from fastapi import status, HTTPException
 
-from backend.app.auth import AuthService, UserRole, Permission, auth_service, verify_password, get_password_hash
-from backend.app.models import LoginRequest, UserRegistration
+from backend.app.services.auth_service import auth_service
+from backend.app.models import LoginRequest, UserRegistration, UserLogin, SubscriptionTier
+import bcrypt
 
 
 @pytest.mark.asyncio
 class TestAuthService:
     """Test AuthService class directly"""
-
+    
     def setup_method(self):
         """Setup for each test method"""
-        self.auth_service = AuthService()
+        # Use the global auth service instance
+        self.auth_service = auth_service
+        # Clear any existing users for clean test state
+        self.auth_service.users_db.clear()
+        self.auth_service.email_to_user_id.clear()
 
     async def test_register_user_success(self):
         """Test successful user registration"""
-        user_data = {
-            "email": "test@example.com", 
-            "password": "securepassword123",
-            "subscription_level": "free"
-        }
+        user_data = UserRegistration(
+            email="test@example.com", 
+            password="securepassword123",
+            subscription_level=SubscriptionTier.FREE
+        )
         
-        result = await self.auth_service.register_user(user_data)
+        user_response, token_response = await self.auth_service.register_user(user_data)
         
-        assert result["email"] == "test@example.com"
-        assert result["subscription_level"] == "free"
-        assert "user_id" in result
-        
-        # Verify user was added to database
-        assert "test@example.com" in self.auth_service.users_db
+        assert user_response.email == "test@example.com"
+        assert user_response.subscription_level == SubscriptionTier.FREE
+        assert user_response.user_id is not None
+        assert token_response.access_token is not None
+          # Verify user was added to database
+        assert user_response.email in self.auth_service.email_to_user_id
 
     async def test_register_user_duplicate_email(self):
         """Test registration with duplicate email"""
-        user_data = {
-            "email": "test@example.com", 
-            "password": "securepassword123",
-            "subscription_level": "free"
-        }
+        user_data = UserRegistration(
+            email="test@example.com", 
+            password="securepassword123",
+            subscription_level=SubscriptionTier.FREE
+        )
         
         # Register first user
         await self.auth_service.register_user(user_data)
         
         # Try to register same email again
-        with pytest.raises(ValueError, match="User already exists"):
+        with pytest.raises(HTTPException) as exc_info:
             await self.auth_service.register_user(user_data)
+        assert exc_info.value.status_code == 409
 
     async def test_authenticate_user_success(self):
         """Test successful user authentication"""
-        user_data = {
-            "email": "test@example.com", 
-            "password": "securepassword123",
-            "subscription_level": "free"
-        }
+        user_reg_data = UserRegistration(
+            email="test@example.com", 
+            password="securepassword123",
+            subscription_level=SubscriptionTier.FREE
+        )
         
         # Register user first
-        await self.auth_service.register_user(user_data)
+        await self.auth_service.register_user(user_reg_data)
         
-        # Authenticate user
-        user = await self.auth_service.authenticate_user("test@example.com", "securepassword123")
+        # Login user
+        login_data = UserLogin(email="test@example.com", password="securepassword123")
+        user_response, token_response = await self.auth_service.login_user(login_data)
         
-        assert user is not None
-        assert user["email"] == "test@example.com"
-        assert user["subscription_level"] == "free"
+        assert user_response is not None
+        assert user_response.email == "test@example.com"
+        assert user_response.subscription_level == SubscriptionTier.FREE
+        assert token_response.access_token is not None
 
     async def test_authenticate_user_invalid_credentials(self):
         """Test authentication with invalid credentials"""
-        user_data = {
-            "email": "test@example.com", 
-            "password": "securepassword123",
-            "subscription_level": "free"
-        }
+        user_reg_data = UserRegistration(
+            email="test@example.com", 
+            password="securepassword123",
+            subscription_level=SubscriptionTier.FREE
+        )
         
         # Register user first
-        await self.auth_service.register_user(user_data)
+        await self.auth_service.register_user(user_reg_data)
         
         # Try to authenticate with wrong password
-        user = await self.auth_service.authenticate_user("test@example.com", "wrongpassword")
-        assert user is None
+        login_data = UserLogin(email="test@example.com", password="wrongpassword")
+        with pytest.raises(HTTPException) as exc_info:
+            await self.auth_service.login_user(login_data)
+        assert exc_info.value.status_code == 401
         
         # Try to authenticate non-existent user
-        user = await self.auth_service.authenticate_user("nonexistent@example.com", "anypassword")
-        assert user is None
+        login_data = UserLogin(email="nonexistent@example.com", password="anypassword")
+        with pytest.raises(HTTPException) as exc_info:
+            await self.auth_service.login_user(login_data)
+        assert exc_info.value.status_code == 401
 
     async def test_create_access_token_for_user(self):
         """Test access token creation"""
-        user_data = {
-            "email": "test@example.com", 
-            "password": "securepassword123",
-            "subscription_level": "free"
-        }
+        user_reg_data = UserRegistration(
+            email="test@example.com", 
+            password="securepassword123",
+            subscription_level=SubscriptionTier.FREE
+        )
         
-        # Register and authenticate user
-        await self.auth_service.register_user(user_data)
-        user = await self.auth_service.authenticate_user("test@example.com", "securepassword123")
+        # Register user
+        user_response, token_response = await self.auth_service.register_user(user_reg_data)
         
-        # Create access token
-        token = await self.auth_service.create_access_token_for_user(user)
-        
-        assert isinstance(token, str)
-        assert len(token) > 0
+        # Check token properties
+        assert isinstance(token_response.access_token, str)
+        assert len(token_response.access_token) > 0
+        assert token_response.token_type == "bearer"
 
 
 class TestPasswordUtilities:
-    """Test password hashing and verification"""
+    """Test password hashing and verification using auth service"""
 
     def test_password_hash_and_verify(self):
         """Test password hashing and verification"""
         password = "testpassword123"
         
-        # Hash password
-        hashed = get_password_hash(password)
+        # Hash password using auth service
+        hashed = auth_service._hash_password(password)
         assert hashed != password
         assert len(hashed) > 0
         
         # Verify correct password
-        assert verify_password(password, hashed) is True
+        assert auth_service._verify_password(password, hashed) is True
         
         # Verify incorrect password
-        assert verify_password("wrongpassword", hashed) is False
+        assert auth_service._verify_password("wrongpassword", hashed) is False
 
     def test_different_hashes_for_same_password(self):
         """Test that same password produces different hashes (salt)"""
         password = "testpassword123"
         
-        hash1 = get_password_hash(password)
-        hash2 = get_password_hash(password)
+        hash1 = auth_service._hash_password(password)
+        hash2 = auth_service._hash_password(password)
         
         # Hashes should be different due to salt
         assert hash1 != hash2
         
         # But both should verify correctly
-        assert verify_password(password, hash1) is True
-        assert verify_password(password, hash2) is True
+        assert auth_service._verify_password(password, hash1) is True
+        assert auth_service._verify_password(password, hash2) is True
 
 
-class TestEnums:
-    """Test authentication enums"""
+class TestBcryptDirect:
+    """Test bcrypt functions directly"""
 
-    def test_user_role_enum(self):
-        """Test UserRole enum values"""
-        assert UserRole.USER == "user"
-        assert UserRole.ADMIN == "admin"
-        assert UserRole.MODERATOR == "moderator"
-
-    def test_permission_enum(self):
-        """Test Permission enum values"""
-        assert Permission.READ_BASIC == "read:basic"
-        assert Permission.ADMIN_ALL == "admin:all"
-        assert Permission.BULK_ANALYSIS == "bulk:analysis"
+    def test_bcrypt_password_hashing(self):
+        """Test bcrypt password hashing"""
+        password = "testpassword123"
+        
+        # Hash password using bcrypt directly
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+        
+        # Verify password
+        assert bcrypt.checkpw(password.encode('utf-8'), hashed) is True
+        assert bcrypt.checkpw("wrongpassword".encode('utf-8'), hashed) is False
 
 
 @pytest.mark.asyncio
