@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio, base64, json, os
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict
 
 import httpx
@@ -34,6 +34,11 @@ from .auth import get_current_user, get_current_user_optional, require_medium, r
 
 load_dotenv()
 
+# Environment variables
+ABUSE_KEY = os.getenv("ABUSEIPDB_API_KEY")
+URLSCAN_KEY = os.getenv("URLSCAN_API_KEY") 
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+
 # Initialize FastAPI app with enhanced metadata
 app = FastAPI(
     title="Threat Intelligence API",
@@ -56,7 +61,7 @@ app.add_middleware(
 @app.exception_handler(HTTPException)
 async def http_exc_handler(_: Request, exc: HTTPException):
     return JSONResponse(
-        content={"error": exc.detail, "ts": datetime.utcnow().isoformat(timespec="seconds")},
+        content={"error": exc.detail, "ts": datetime.now(UTC).isoformat(timespec="seconds")},
         status_code=exc.status_code,
     )
 
@@ -95,8 +100,7 @@ async def login(login_data: UserLogin):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}"
-        )
+            detail=f"Login failed: {str(e)}"        )
 
 
 @app.get("/auth/profile", response_model=UserResponse, tags=["authentication"])
@@ -431,8 +435,7 @@ async def analyze_batch_premium(
                 "analysis": result.dict(),
                 "status": "success"
             })
-        except Exception as e:
-            results.append({
+        except Exception as e:            results.append({
                 "indicator": indicator_data.get("value"),
                 "type": indicator_data.get("type"),
                 "error": str(e),
@@ -447,6 +450,7 @@ async def analyze_batch_premium(
         user_id=current_user["user_id"],
         subscription_level=current_user["subscription"]
     )
+
 
 
 # ───────────────────────── Protected Analysis History ─────────────────────────────
@@ -581,7 +585,7 @@ async def analyze_legacy(
     return {
         "indicator": req.indicator,
         "indicator_type": typ,
-        "analysis_timestamp": datetime.utcnow().isoformat(),
+        "analysis_timestamp": datetime.now(UTC).isoformat(),
         "sources": {
             "virustotal": vt_json,
             "abuseipdb": abuse_json,
@@ -720,7 +724,7 @@ async def health():
     """Enhanced health check endpoint"""
     return {
         "status": "OK",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "version": "1.0.0",
         "services": {
             "virustotal": bool(os.getenv("VIRUSTOTAL_API_KEY")),
@@ -743,8 +747,7 @@ async def system_status():
             "virustotal": {"status": "connected" if os.getenv("VIRUSTOTAL_API_KEY") else "disconnected"},
             "abuseipdb": {"status": "connected" if ABUSE_KEY else "disconnected"},
             "urlscan": {"status": "connected" if URLSCAN_KEY else "disconnected"},
-            "openai": {"status": "connected" if OPENAI_KEY else "disconnected"}
-        }
+            "openai": {"status": "connected" if OPENAI_KEY else "disconnected"}        }
     }
 
 

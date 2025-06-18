@@ -167,7 +167,6 @@ class TestBcryptDirect:
         assert bcrypt.checkpw("wrongpassword".encode('utf-8'), hashed) is False
 
 
-@pytest.mark.asyncio
 class TestAuthModels:
     """Test authentication models"""
 

@@ -8,7 +8,7 @@ import base64
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -58,7 +58,7 @@ class ThreatAnalysisService:
         
         # Create metadata
         metadata = AnalysisMetadata(
-            analyzed_at=datetime.utcnow(),
+            analyzed_at=datetime.now(UTC),
             analysis_id=f"analysis_{int(time.time())}_{hash(indicator) % 10000}",
             sources_used=["virustotal"],
             cached=False

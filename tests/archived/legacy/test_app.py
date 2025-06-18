@@ -17,7 +17,10 @@ async def test_health_endpoint(async_client: httpx.AsyncClient):
     """Test the health check endpoint returns 200 OK."""
     response = await async_client.get("/health")
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"status": "OK"}
+    data = response.json()
+    assert data["status"] == "OK"
+    assert "version" in data
+    assert "services" in data
 
 # ───────────────────────────────────────────────────────────────────
 # VirusTotal Endpoint Tests

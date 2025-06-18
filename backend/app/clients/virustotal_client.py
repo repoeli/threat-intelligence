@@ -20,7 +20,7 @@ import time
 from typing import Any, Dict, Literal, Optional, Tuple
 
 import httpx
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger("vt_client")
 
@@ -58,7 +58,8 @@ FREE_ENDPOINTS: Dict[str, Tuple[str, str]] = {
 class _FileID(BaseModel):
     file_id: str = Field(..., min_length=32, max_length=64)
 
-    @validator("file_id")
+    @field_validator("file_id")
+    @classmethod
     def _hex(cls, v):  # noqa: N805
         if not all(c in "0123456789abcdefABCDEF" for c in v):
             raise ValueError("file_id must be hex-encoded")
@@ -68,7 +69,8 @@ class _FileID(BaseModel):
 class _URLID(BaseModel):
     url_id: str
 
-    @validator("url_id")
+    @field_validator("url_id")
+    @classmethod
     def _b64(cls, v):  # noqa: N805
         if "/" in v or "+" in v:
             raise ValueError("url_id must be URL-safe base64 (no / or +)")

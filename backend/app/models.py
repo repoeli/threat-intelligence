@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal, Optional, List, Dict, Any
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 
 
 # ────────────────── Enhanced Enums ──────────────────
@@ -39,6 +39,26 @@ class SubscriptionTier(str, Enum):
     MEDIUM = "medium"
     PLUS = "plus"
     ADMIN = "admin"
+
+
+class ThreatVerdict(str, Enum):
+    CLEAN = "clean"
+    SUSPICIOUS = "suspicious"
+    MALICIOUS = "malicious"
+    UNKNOWN = "unknown"
+
+
+class RiskLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class UserRole(str, Enum):
+    USER = "user"
+    ADMIN = "admin"
+    PREMIUM = "premium"
 
 
 # ────────────────── Simple Request Models ──────────────────
@@ -94,14 +114,15 @@ class EmailRequest(BaseModel):
     user_id: str = Field(..., description="User UUID")
     subscription_level: SubscriptionTier = SubscriptionTier.FREE
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
-                "email": "alice@example.com",
+                "email": "alice@example.com", 
                 "user_id": "12345678-1234-1234-1234-123456789012",
                 "subscription_level": "free",
             }
         }
+    )
 
 
 # ────────────────── Enhanced Response Models ──────────────────
@@ -177,13 +198,14 @@ class LoginRequest(BaseModel):
     username: str = Field(..., min_length=1, description="Username or email")
     password: str = Field(..., min_length=1, description="User password")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "username": "user@example.com",
                 "password": "SecurePassword123!"
             }
         }
+    )
 
 
 class UserRegistration(BaseModel):
@@ -191,14 +213,15 @@ class UserRegistration(BaseModel):
     password: str = Field(..., min_length=8, description="User password")
     subscription_level: SubscriptionTier = SubscriptionTier.FREE
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "password": "SecurePassword123!",
                 "subscription_level": "free"
             }
         }
+    )
 
 
 class UserLogin(BaseModel):
@@ -206,13 +229,14 @@ class UserLogin(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "email": "user@example.com",
                 "password": "SecurePassword123!"
             }
         }
+    )
 
 
 class TokenResponse(BaseModel):
