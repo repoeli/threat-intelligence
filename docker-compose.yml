@@ -1,7 +1,7 @@
 ## `docker-compose.yml`  – Dev **and** single‑node prod
 # ────────────────────────────────────────────────────────────────────────────
 # This file defines a single service, `api`, which runs the FastAPI app.
-version: "3.9"
+
 services:
   api:
     build: .

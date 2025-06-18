@@ -16,6 +16,9 @@ RUN pip install --prefix=/install --no-cache-dir -r requirements.txt && \
 FROM python:3.13-slim AS runtime
 ENV PYTHONUNBUFFERED=1 PATH="/home/app/.local/bin:$PATH" PORT=8686
 
+# Install curl for health checks
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 RUN adduser --disabled-password --gecos "" --uid 1001 app
 USER app
 WORKDIR /app
