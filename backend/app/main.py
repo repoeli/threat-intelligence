@@ -73,8 +73,8 @@ async def register(user_data: UserRegistration):
         user_response, token_response = await auth_service.register_user(user_data)
         return {
             "message": "User registered successfully",
-            "user": user_response.dict(),
-            "token": token_response.dict()
+            "user": user_response.model_dump(),
+            "token": token_response.model_dump()
         }
     except HTTPException:
         raise
@@ -92,8 +92,8 @@ async def login(login_data: UserLogin):
         user_response, token_response = await auth_service.login_user(login_data)
         return {
             "message": "Login successful",
-            "user": user_response.dict(),
-            "token": token_response.dict()
+            "user": user_response.model_dump(),
+            "token": token_response.model_dump()
         }
     except HTTPException:
         raise
@@ -325,34 +325,6 @@ async def vt_url(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_iden
         return {"message": "submitted", "analysis_id": sub["data"]["id"]}
 
 
-# ───────────────────────── URLScan routes ──────────────────────────
-@app.post("/api/urlscan/scan", tags=["urlscan"])
-async def urlscan_scan(body: Dict[str, str]):
-    """URLScan submission endpoint"""
-    if not URLSCAN_KEY:
-        raise HTTPException(503, "URLScan key missing")
-    target = body.get("url")
-    if determine_indicator_type(target) != "url":
-        raise HTTPException(400, "invalid URL")
-    async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.post(
-            "https://urlscan.io/api/v1/scan/",
-            headers={"API-Key": URLSCAN_KEY, "Content-Type": "application/json"},
-            json={"url": target},
-        )
-        r.raise_for_status()
-        return r.json()
-
-
-@app.get("/api/urlscan/result/{scan_id}", tags=["urlscan"])
-async def urlscan_result(scan_id: str):
-    """URLScan result retrieval"""
-    async with httpx.AsyncClient(timeout=30) as c:
-        r = await c.get(f"https://urlscan.io/api/v1/result/{scan_id}")
-        r.raise_for_status()
-        return r.json()
-
-
 # ───────────────────────── Premium Analysis Endpoints (JWT Protected) ─────────────────────────────
 
 @app.post("/analyze/premium", response_model=ThreatIntelligenceResult, tags=["premium-analysis"])
@@ -411,8 +383,7 @@ async def analyze_batch_premium(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Batch size limit exceeded. {current_user['subscription']} subscription allows max {max_batch_size} indicators"
         )
-    
-    # Track API usage
+      # Track API usage
     await auth_service.update_api_usage(current_user["user_id"])
     
     results = []
@@ -432,10 +403,11 @@ async def analyze_batch_premium(
             results.append({
                 "indicator": req.indicator,
                 "type": indicator_data.get("type"),
-                "analysis": result.dict(),
+                "analysis": result.model_dump(),
                 "status": "success"
             })
-        except Exception as e:            results.append({
+        except Exception as e:
+            results.append({
                 "indicator": indicator_data.get("value"),
                 "type": indicator_data.get("type"),
                 "error": str(e),
@@ -706,7 +678,7 @@ async def analyze_batch(
             results.append({
                 "indicator": indicator_value,
                 "type": indicator_data.get("type"),
-                "analysis": result.dict()
+                "analysis": result.model_dump()
             })
         except Exception as e:
             results.append({
