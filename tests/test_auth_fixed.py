@@ -25,7 +25,7 @@ class TestAuthService:
         self.auth_service = auth_service
         # Note: With database backend, we don't clear users in tests
         # Tests should be isolated and use test database or unique data
-
+        
     async def test_register_user_success(self):
         """Test successful user registration"""
         import uuid
