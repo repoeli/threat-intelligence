@@ -315,3 +315,20 @@ class ThreatIntelligenceResult(BaseModel):
     
     # Raw responses (for debugging/advanced users)
     raw_responses: Dict[str, Any] = Field(default_factory=dict, description="Raw API responses")
+
+
+class UserCreate(BaseModel):
+    """User creation model for database operations"""
+    username: str = Field(..., min_length=3, max_length=50, description="Unique username")
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, description="User password")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "username": "johndoe",
+                "email": "john@example.com",
+                "password": "SecurePassword123!"
+            }
+        }
+    )

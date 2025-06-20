@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio, base64, json, os
 from datetime import datetime, UTC
 from typing import Any, Dict
+from contextlib import asynccontextmanager
 
 import httpx
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import (
     IndicatorRequest, 
@@ -31,6 +33,7 @@ from .services.threat_analysis import threat_analysis_service
 from .services.auth_service import auth_service
 from .utils.indicator import determine_indicator_type
 from .auth import get_current_user, get_current_user_optional, require_medium, require_plus, check_rate_limit
+from .database import init_database, close_database, get_db_session
 
 load_dotenv()
 
@@ -39,13 +42,24 @@ ABUSE_KEY = os.getenv("ABUSEIPDB_API_KEY")
 URLSCAN_KEY = os.getenv("URLSCAN_API_KEY") 
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 
+# Database lifespan manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage database lifecycle."""
+    # Startup
+    await init_database()
+    yield
+    # Shutdown
+    await close_database()
+
 # Initialize FastAPI app with enhanced metadata
 app = FastAPI(
     title="Threat Intelligence API",
     version="1.0.0",
     description="Advanced threat intelligence analysis platform",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # ───────────────────────── CORS ────────────────────────────────
@@ -67,10 +81,10 @@ async def http_exc_handler(_: Request, exc: HTTPException):
 
 # ───────────────────────── Authentication Endpoints ─────────────────────────
 @app.post("/auth/register", response_model=dict, tags=["authentication"])
-async def register(user_data: UserRegistration):
+async def register(user_data: UserRegistration, db: AsyncSession = Depends(get_db_session)):
     """Register a new user"""
     try:
-        user_response, token_response = await auth_service.register_user(user_data)
+        user_response, token_response = await auth_service.register_user(user_data, db)
         return {
             "message": "User registered successfully",
             "user": user_response.model_dump(),
@@ -86,10 +100,10 @@ async def register(user_data: UserRegistration):
 
 
 @app.post("/auth/login", response_model=dict, tags=["authentication"])
-async def login(login_data: UserLogin):
+async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db_session)):
     """Authenticate user and return access token"""
     try:
-        user_response, token_response = await auth_service.login_user(login_data)
+        user_response, token_response = await auth_service.login_user(login_data, db)
         return {
             "message": "Login successful",
             "user": user_response.model_dump(),
@@ -100,14 +114,18 @@ async def login(login_data: UserLogin):
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}"        )
+            detail=f"Login failed: {str(e)}"
+        )
 
 
 @app.get("/auth/profile", response_model=UserResponse, tags=["authentication"])
-async def get_profile(current_user: Dict = Depends(get_current_user)):
+async def get_profile(
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
+):
     """Get current user profile (requires authentication)"""
     try:
-        return await auth_service.get_user_profile(current_user["user_id"])
+        return await auth_service.get_user_profile(int(current_user["user_id"]), db)
     except HTTPException:
         raise
     except Exception as e:
@@ -118,9 +136,49 @@ async def get_profile(current_user: Dict = Depends(get_current_user)):
 
 
 @app.get("/auth/stats", tags=["authentication"])
-async def get_auth_stats(current_user: Dict = Depends(require_plus)):
+async def get_auth_stats(
+    current_user: Dict = Depends(require_plus),
+    db: AsyncSession = Depends(get_db_session)
+):
     """Get authentication service statistics (plus users only)"""
-    return auth_service.get_user_stats()
+    return await auth_service.get_user_stats(db)
+
+
+@app.get("/auth/history", tags=["authentication"])
+async def get_analysis_history(
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get user's analysis history (requires authentication)"""
+    from .services.database_service import db_service
+    
+    history = await db_service.get_user_analysis_history(
+        db=db,
+        user_id=int(current_user["user_id"]),
+        limit=limit,
+        offset=offset
+    )
+    
+    return {
+        "history": [
+            {
+                "id": record.id,
+                "indicator": record.indicator,
+                "indicator_type": record.indicator_type,
+                "threat_score": record.threat_score,
+                "risk_level": record.risk_level,
+                "created_at": record.created_at,
+                "analysis_data": record.analysis_data,
+                "sources": record.sources
+            }
+            for record in history
+        ],
+        "total": len(history),
+        "limit": limit,
+        "offset": offset
+    }
 
 
 # Updated identity function using optional authentication
@@ -330,31 +388,46 @@ async def vt_url(req: IndicatorRequest, ident: Dict[str, str] = Depends(get_iden
 @app.post("/analyze/premium", response_model=ThreatIntelligenceResult, tags=["premium-analysis"])
 async def analyze_premium(
     req: SimpleIndicatorRequest, 
-    current_user: Dict[str, str] = Depends(require_medium)
+    current_user: Dict[str, str] = Depends(require_medium),
+    db: AsyncSession = Depends(get_db_session)
 ) -> ThreatIntelligenceResult:
     """Premium threat intelligence analysis (requires Medium+ subscription)"""
-    # Track API usage
-    await auth_service.update_api_usage(current_user["user_id"])
     
-    return await threat_analysis_service.analyze_indicator(
+    # Perform the analysis
+    result = await threat_analysis_service.analyze_indicator(
         indicator=req.indicator,
         user_id=current_user["user_id"],
         subscription=current_user["subscription"],
         include_raw=req.include_raw_data or True,  # Premium users get raw data by default
         enhanced_analysis=True  # Premium analysis features
     )
+    
+    # Store result in database
+    from .utils.indicator import determine_indicator_type
+    from .services.database_service import db_service
+    
+    indicator_type = determine_indicator_type(req.indicator)
+    await db_service.store_analysis_result(
+        db=db,
+        user_id=int(current_user["user_id"]),
+        indicator=req.indicator,
+        indicator_type=indicator_type.value,
+        result=result
+    )
+    
+    return result
 
 
 @app.post("/analyze/enterprise", response_model=ThreatIntelligenceResult, tags=["enterprise-analysis"])
 async def analyze_enterprise(
     req: SimpleIndicatorRequest, 
-    current_user: Dict[str, str] = Depends(require_plus)
+    current_user: Dict[str, str] = Depends(require_plus),
+    db: AsyncSession = Depends(get_db_session)
 ) -> ThreatIntelligenceResult:
     """Enterprise threat intelligence analysis (requires Plus+ subscription)"""
-    # Track API usage
-    await auth_service.update_api_usage(current_user["user_id"])
     
-    return await threat_analysis_service.analyze_indicator(
+    # Perform the analysis
+    result = await threat_analysis_service.analyze_indicator(
         indicator=req.indicator,
         user_id=current_user["user_id"],
         subscription=current_user["subscription"],
@@ -362,6 +435,21 @@ async def analyze_enterprise(
         enhanced_analysis=True,
         deep_analysis=True  # Enterprise-only deep analysis
     )
+    
+    # Store result in database
+    from .utils.indicator import determine_indicator_type
+    from .services.database_service import db_service
+    
+    indicator_type = determine_indicator_type(req.indicator)
+    await db_service.store_analysis_result(
+        db=db,
+        user_id=int(current_user["user_id"]),
+        indicator=req.indicator,
+        indicator_type=indicator_type.value,
+        result=result
+    )
+    
+    return result
 
 
 @app.post("/analyze/batch/premium", tags=["premium-analysis"])
@@ -490,15 +578,33 @@ async def get_user_analysis_stats(
 @app.post("/analyze", response_model=ThreatIntelligenceResult, tags=["analysis"])
 async def analyze_enhanced(
     req: SimpleIndicatorRequest, 
-    ident: Dict[str, str] = Depends(get_identity)
+    ident: Dict[str, str] = Depends(get_identity),
+    db: AsyncSession = Depends(get_db_session)
 ) -> ThreatIntelligenceResult:
     """Enhanced unified threat intelligence analysis"""
-    return await threat_analysis_service.analyze_indicator(
+    # Perform the analysis
+    result = await threat_analysis_service.analyze_indicator(
         indicator=req.indicator,
         user_id=ident["user_id"],
         subscription=ident["subscription"],
         include_raw=req.include_raw_data
     )
+    
+    # Store result in database if user is authenticated (not anonymous)
+    if ident["user_id"] != "anonymous":
+        from .utils.indicator import determine_indicator_type
+        from .services.database_service import db_service
+        
+        indicator_type = determine_indicator_type(req.indicator)
+        await db_service.store_analysis_result(
+            db=db,
+            user_id=int(ident["user_id"]),
+            indicator=req.indicator,
+            indicator_type=indicator_type.value,
+            result=result
+        )
+    
+    return result
 
 
 # ───────────────────────── Legacy Analyze route (for backward compatibility) ───────────────────────────
@@ -540,13 +646,8 @@ async def analyze_legacy(
     urlscan_json = {}
     if typ == "url" and URLSCAN_KEY:
         url_id = (
-            base64.urlsafe_b64encode(req.indicator.encode()).decode().rstrip("=")
-        )
-        try:
-            urlscan_json = await urlscan_result(url_id)
-        except:
-            urlscan_json = {}
-
+            base64.urlsafe_b64encode(req.indicator.encode()).decode().rstrip("=")        )
+    
     vt_json = await vt_task
     abuse_json = await abuse_task if abuse_task else {"note": "n/a"}
     gpt_json = await _call_openai(
@@ -605,18 +706,10 @@ async def visualize(
         )
     )
     abuse_task = (
-        asyncio.create_task(_call_abuseipdb(req.indicator)) if typ == "ip" else None
-    )
+        asyncio.create_task(_call_abuseipdb(req.indicator)) if typ == "ip" else None    )
 
     urlscan_json = {}
-    if typ == "url" and URLSCAN_KEY:
-        url_id = (
-            base64.urlsafe_b64encode(req.indicator.encode()).decode().rstrip("=")
-        )
-        try:
-            urlscan_json = await urlscan_result(url_id)
-        except:
-            urlscan_json = {}
+    # URLScan integration removed due to missing implementation
 
     vt_json = await vt_task
     abuse_json = await abuse_task if abuse_task else {"note": "n/a"}

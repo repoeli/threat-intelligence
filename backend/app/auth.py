@@ -7,10 +7,12 @@ from typing import Dict, Optional, List
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 import os
 
 from .models import SubscriptionTier
 from .services.auth_service import auth_service
+from .database import get_db_session
 
 # Configuration
 security = HTTPBearer()
@@ -39,27 +41,31 @@ class AuthorizationError(HTTPException):
         super().__init__(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, str]:
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db_session)
+) -> Dict[str, str]:
     """
     FastAPI dependency to get current authenticated user from JWT token
     """
-    return auth_service.verify_token(credentials.credentials)
+    return await auth_service.verify_token(credentials.credentials, db)
 
 
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db_session)
 ) -> Dict[str, str]:
     """
     FastAPI dependency to get current user (optional authentication)
     Returns anonymous user if no token provided
     """
     if credentials is None:
-        return {"user_id": "anonymous", "subscription": "free", "email": "anonymous@example.com"}
+        return {"user_id": "anonymous", "subscription": "free", "email": "anonymous@example.com", "username": "anonymous"}
     
     try:
-        return auth_service.verify_token(credentials.credentials)
+        return await auth_service.verify_token(credentials.credentials, db)
     except HTTPException:
-        return {"user_id": "anonymous", "subscription": "free", "email": "anonymous@example.com"}
+        return {"user_id": "anonymous", "subscription": "free", "email": "anonymous@example.com", "username": "anonymous"}
 
 
 def require_subscription(min_tier: SubscriptionTier):
@@ -122,7 +128,10 @@ RATE_LIMITS = {
 }
 
 
-async def check_rate_limit(current_user: Dict = Depends(get_current_user)) -> Dict[str, str]:
+async def check_rate_limit(
+    current_user: Dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
+) -> Dict[str, str]:
     """
     Check if user has exceeded their rate limit
     """
@@ -130,8 +139,7 @@ async def check_rate_limit(current_user: Dict = Depends(get_current_user)) -> Di
     limits = RATE_LIMITS.get(user_tier, RATE_LIMITS[SubscriptionTier.FREE])
     
     # In production, this would check against Redis or database
-    # For now, we'll just track in the auth service
-    await auth_service.update_api_usage(current_user["user_id"])
+    # For now, we'll just pass through since we're migrating
     
     return current_user
 

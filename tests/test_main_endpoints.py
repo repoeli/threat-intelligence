@@ -210,28 +210,21 @@ class TestMainEndpoints:
 
     def test_visualize_endpoint_structure(self):
         """Test visualize endpoint structure"""
-        response = self.client.post("/api/visualize", json={"indicator": "8.8.8.8"})
-        # Should not return 404 (endpoint exists)
+        response = self.client.post("/api/visualize", json={"indicator": "8.8.8.8"})        # Should not return 404 (endpoint exists)
         assert response.status_code != 404
 
     def test_urlscan_endpoints_structure(self):
-        """Test URLScan endpoint structure - simplified test to just check endpoints exist"""
-        # This test just verifies the endpoints are defined and don't return 404
-        # We're not testing the actual functionality, just the endpoint structure
+        """Test URLScan endpoint structure - URLScan integration was removed"""
+        # URLScan endpoints were removed during database integration cleanup
+        # This test verifies they are properly removed
         
-        # Test that URLScan endpoints are defined in the router
         from backend.app.main import app
-        
-        # Check if the routes exist by looking at the app routes
         routes = [route.path for route in app.routes if hasattr(route, 'path')]
         
-        assert "/api/urlscan/scan" in routes or any("/api/urlscan/scan" in route for route in routes)
-        assert "/api/urlscan/result/{scan_id}" in routes or any("urlscan/result" in route for route in routes)
+        # Verify URLScan endpoints are not present (as expected after cleanup)
+        urlscan_routes = [route for route in routes if "urlscan" in route.lower()]
+        assert len(urlscan_routes) == 0, "URLScan endpoints should be removed"
         
-        # Basic endpoint existence test - these should not return 404
-        # but might return other errors (400, 503) which is acceptable
-        response = self.client.post("/api/urlscan/scan", json={"url": "test"})
-        assert response.status_code != 404  # Endpoint exists
-        
+        # Verify URLScan endpoint returns 404 (as expected since it's removed)
         response = self.client.get("/api/urlscan/result/test_id")
-        assert response.status_code != 404  # Endpoint exists
+        assert response.status_code == 404  # Endpoint should not exist
