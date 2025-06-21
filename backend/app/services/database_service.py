@@ -35,8 +35,7 @@ class DatabaseService:
             hashed_password=hashed_password,
             is_active=True,
             is_admin=getattr(user_data, 'is_admin', False),
-            created_at=datetime.now(timezone.utc)
-        )
+            created_at=datetime.now(timezone.utc)        )
         db.add(db_user)
         await db.commit()
         await db.refresh(db_user)
@@ -57,9 +56,9 @@ class DatabaseService:
         result = await db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
     
-    async def authenticate_user(self, db: AsyncSession, username: str, password: str) -> Optional[User]:
-        """Authenticate user with username and password."""
-        user = await self.get_user_by_username(db, username)
+    async def authenticate_user(self, db: AsyncSession, email: str, password: str) -> Optional[User]:
+        """Authenticate user with email and password."""
+        user = await self.get_user_by_email(db, email)
         if not user or not self._verify_password(password, user.hashed_password):
             return None
         

@@ -1,9 +1,95 @@
+# Virtual Environment
 .venv
+venv/
+env/
+
+# Environment Variables
 .env
-# Ignore Python cache files and other unnecessary files
+.env.local
+.env.production
+
+# Python Cache & Bytecode
 __pycache__/
 *.py[cod]
-*.log
-*5.0*
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
 .pytest_cache/
-#test files
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS Generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Development scripts (add specific patterns for scripts you want to ignore)
+quick_*.py
+test_*.py
+check_*.py
+verify_*.py
+debug_*.py
+create_*.py
+*_test.py
+*_check.py
+api_connection_test.py
+migrate_*.py
+setup-*.bat
+setup-*.sh
+restart-*.bat
