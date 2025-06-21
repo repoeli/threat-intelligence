@@ -93,3 +93,4 @@ migrate_*.py
 setup-*.bat
 setup-*.sh
 restart-*.bat
+backups/

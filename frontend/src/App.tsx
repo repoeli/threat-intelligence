@@ -1,11 +1,10 @@
-import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Toaster } from 'sonner';
 import Navbar from './components/Navbar';
 
-// Import pages (we'll create these next)
+// Import pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
