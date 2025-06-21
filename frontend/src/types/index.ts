@@ -114,26 +114,49 @@ export enum RiskLevel {
 
 // Dashboard Types
 export interface DashboardStats {
-  total_analyses: number;
-  analyses_this_month: number;
-  threats_detected: number;
-  subscription_tier: SubscriptionTier;
-  usage_stats: UsageStats;
-}
-
-export interface UsageStats {
-  requests_used: number;
-  requests_limit: number;
-  reset_date: string;
+  user_id: string;
+  subscription: string;
+  usage_stats: {
+    total_analyses: number;
+    this_month: number;
+    this_week: number;
+    today: number;
+  };
+  risk_breakdown: Record<string, number>;
+  type_breakdown: Record<string, number>;
+  high_risk_findings: number;
+  subscription_limits: {
+    daily_limit: number;
+    monthly_limit: number;
+    batch_size_limit: number;
+  };
+  feature_access: {
+    raw_data: boolean;
+    batch_analysis: boolean;
+  };
 }
 
 // History Types
 export interface AnalysisHistory {
-  results: ThreatAnalysisResult[];
-  total: number;
-  page: number;
-  size: number;
-  total_pages: number;
+  user_id: string;
+  subscription: string;
+  total_analyses: number;
+  analyses: AnalysisHistoryItem[];
+  pagination: {
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+export interface AnalysisHistoryItem {
+  id: number;
+  indicator: string;
+  indicator_type: string;
+  threat_score: number;
+  risk_level: string;
+  analyzed_at: string;
+  analysis_data?: any;
 }
 
 export interface HistoryFilters {

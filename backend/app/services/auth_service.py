@@ -44,14 +44,17 @@ class AuthService:
             "type": "access_token"
         }
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
-    
     async def verify_token(self, token: str, db: AsyncSession) -> Dict:
         """Verify and decode JWT token"""
+        print(f"🔐 Verifying token: {token[:20]}...")
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             user_id = payload.get("user_id")
             
+            print(f"✅ Token decoded successfully. User ID: {user_id}")
+            
             if not user_id:
+                print("❌ No user ID in token payload")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token: no user ID"
@@ -59,29 +62,37 @@ class AuthService:
             
             user = await db_service.get_user_by_id(db, user_id)
             if not user:
+                print(f"❌ User {user_id} not found in database")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token: user not found"
                 )
             
             if not user.is_active:
+                print(f"❌ User {user_id} is not active")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User account is disabled"
                 )
             
-            return {
-                "user_id": user_id,
+            result = {
+                "user_id": str(user_id),
                 "email": payload.get("email"),
                 "username": payload.get("username"),
                 "subscription": payload.get("subscription", "free")
             }
+            
+            print(f"✅ Token verification successful: {result}")
+            return result
+            
         except jwt.ExpiredSignatureError:
+            print("❌ Token has expired")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired"
             )
-        except jwt.PyJWTError:
+        except jwt.PyJWTError as e:
+            print(f"❌ JWT decode error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token"

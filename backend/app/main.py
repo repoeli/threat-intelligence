@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio, base64, json, os
 from datetime import datetime, UTC
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from contextlib import asynccontextmanager
 
 import httpx
@@ -85,10 +85,22 @@ async def register(user_data: UserRegistration, db: AsyncSession = Depends(get_d
     """Register a new user"""
     try:
         user_response, token_response = await auth_service.register_user(user_data, db)
+        
+        # Get user's analysis count for the response (will be 0 for new users)
+        from .services.database_service import db_service
+        stats = await db_service.get_user_stats(db, int(user_response.user_id))
+        
         return {
-            "message": "User registered successfully",
-            "user": user_response.model_dump(),
-            "token": token_response.model_dump()
+            "access_token": token_response.access_token,
+            "token_type": token_response.token_type,
+            "expires_in": token_response.expires_in,
+            "user": {
+                "user_id": user_response.user_id,
+                "email": user_response.email,
+                "subscription": user_response.subscription_level.value,
+                "created_at": user_response.created_at.isoformat() if user_response.created_at else None,
+                "analysis_count": stats.get("total_analyses", 0)
+            }
         }
     except HTTPException:
         raise
@@ -104,10 +116,22 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db_session
     """Authenticate user and return access token"""
     try:
         user_response, token_response = await auth_service.login_user(login_data, db)
+        
+        # Get user's analysis count for the response
+        from .services.database_service import db_service
+        stats = await db_service.get_user_stats(db, int(user_response.user_id))
+        
         return {
-            "message": "Login successful",
-            "user": user_response.model_dump(),
-            "token": token_response.model_dump()
+            "access_token": token_response.access_token,
+            "token_type": token_response.token_type,
+            "expires_in": token_response.expires_in,
+            "user": {
+                "user_id": user_response.user_id,
+                "email": user_response.email,
+                "subscription": user_response.subscription_level.value,
+                "created_at": user_response.created_at.isoformat() if user_response.created_at else None,
+                "analysis_count": stats.get("total_analyses", 0)
+            }
         }
     except HTTPException:
         raise
@@ -118,14 +142,27 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db_session
         )
 
 
-@app.get("/auth/profile", response_model=UserResponse, tags=["authentication"])
+@app.get("/auth/profile", response_model=dict, tags=["authentication"])
 async def get_profile(
     current_user: Dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session)
 ):
     """Get current user profile (requires authentication)"""
     try:
-        return await auth_service.get_user_profile(int(current_user["user_id"]), db)
+        user_response = await auth_service.get_user_profile(int(current_user["user_id"]), db)
+        
+        # Get user's analysis count
+        from .services.database_service import db_service
+        stats = await db_service.get_user_stats(db, int(current_user["user_id"]))
+        
+        # Return format that matches frontend User interface
+        return {
+            "user_id": user_response.user_id,
+            "email": user_response.email,
+            "subscription": user_response.subscription_level.value,  # Convert enum to string
+            "created_at": user_response.created_at.isoformat() if user_response.created_at else None,
+            "analysis_count": stats.get("total_analyses", 0)
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -517,49 +554,79 @@ async def analyze_batch_premium(
 
 @app.get("/analyze/history", tags=["user-analytics"])
 async def get_analysis_history(
-    limit: int = 10,
+    limit: int = 20,
     offset: int = 0,
-    current_user: Dict[str, str] = Depends(get_current_user)
+    search: Optional[str] = None,
+    indicator_type: Optional[str] = None,
+    threat_level: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    current_user: Dict[str, str] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
 ):
-    """Get user's analysis history (requires authentication)"""
-    # This would typically query a database for user's analysis history
-    # For now, return a mock response showing the concept
+    """Get user's analysis history with filtering options (requires authentication)"""
+    from .services.database_service import db_service
+    
+    user_id = int(current_user["user_id"])
+    
+    # Get filtered analysis history from database
+    history_records = await db_service.get_user_analysis_history_filtered(
+        db, user_id, limit, offset, search, indicator_type, threat_level, date_from, date_to
+    )
+    
+    # Get total count for pagination (with same filters)
+    total_count = await db_service.get_user_analysis_count_filtered(
+        db, user_id, search, indicator_type, threat_level, date_from, date_to
+    )
+    
+    analyses = []
+    for record in history_records:
+        analyses.append({
+            "id": record.id,
+            "indicator": record.indicator,
+            "indicator_type": record.indicator_type,
+            "threat_score": record.threat_score,
+            "risk_level": record.risk_level,
+            "analyzed_at": record.created_at.isoformat(),
+            "analysis_data": record.analysis_data
+        })
+    
     return {
         "user_id": current_user["user_id"],
         "subscription": current_user["subscription"],
-        "total_analyses": 42,  # Mock data
-        "analyses": [
-            {
-                "id": f"analysis_{i}",
-                "indicator": f"example{i}.com",
-                "type": "domain",
-                "threat_score": 0.1 + (i * 0.1),
-                "analyzed_at": f"2025-06-{18-i}T12:00:00Z"
-            }
-            for i in range(min(limit, 5))  # Mock recent analyses
-        ],
+        "total_analyses": total_count,
+        "analyses": analyses,
         "pagination": {
             "limit": limit,
             "offset": offset,
-            "has_more": offset + limit < 42
+            "has_more": offset + limit < total_count
         }
     }
 
 
 @app.get("/analyze/stats", tags=["user-analytics"])
 async def get_user_analysis_stats(
-    current_user: Dict[str, str] = Depends(get_current_user)
+    current_user: Dict[str, str] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
 ):
     """Get user's analysis statistics (requires authentication)"""
+    from .services.database_service import db_service
+    
+    user_id = int(current_user["user_id"])
+    stats = await db_service.get_user_stats(db, user_id)
+    
     return {
         "user_id": current_user["user_id"],
         "subscription": current_user["subscription"],
         "usage_stats": {
-            "total_analyses": 42,
-            "this_month": 15,
-            "this_week": 3,
-            "today": 1
+            "total_analyses": stats["total_analyses"],
+            "this_month": stats["month_analyses"],
+            "this_week": stats["week_analyses"],
+            "today": stats["today_analyses"]
         },
+        "risk_breakdown": stats["risk_breakdown"],
+        "type_breakdown": stats["type_breakdown"],
+        "high_risk_findings": stats["high_risk_findings_this_month"],
         "subscription_limits": {
             "daily_limit": 100 if current_user["subscription"] in ["plus", "admin"] else 20,
             "monthly_limit": 3000 if current_user["subscription"] in ["plus", "admin"] else 500,

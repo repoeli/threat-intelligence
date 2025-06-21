@@ -169,6 +169,192 @@ class DatabaseService:
         await db.commit()
         await db.refresh(metric)
         return metric
+    
+    async def get_user_stats(self, db: AsyncSession, user_id: int) -> Dict[str, Any]:
+        """Get comprehensive statistics for a user."""
+        from sqlalchemy import func
+        from datetime import datetime, timedelta, timezone
+        
+        # Calculate date ranges
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = now - timedelta(days=7)
+        month_start = now - timedelta(days=30)
+        
+        # Total analyses count
+        total_result = await db.execute(
+            select(func.count(AnalysisHistory.id))
+            .where(AnalysisHistory.user_id == user_id)
+        )
+        total_analyses = total_result.scalar() or 0
+        
+        # Today's analyses
+        today_result = await db.execute(
+            select(func.count(AnalysisHistory.id))
+            .where(
+                and_(
+                    AnalysisHistory.user_id == user_id,
+                    AnalysisHistory.created_at >= today_start
+                )
+            )
+        )
+        today_analyses = today_result.scalar() or 0
+        
+        # This week's analyses
+        week_result = await db.execute(
+            select(func.count(AnalysisHistory.id))
+            .where(
+                and_(
+                    AnalysisHistory.user_id == user_id,
+                    AnalysisHistory.created_at >= week_start
+                )
+            )
+        )
+        week_analyses = week_result.scalar() or 0
+        
+        # This month's analyses
+        month_result = await db.execute(
+            select(func.count(AnalysisHistory.id))
+            .where(
+                and_(
+                    AnalysisHistory.user_id == user_id,
+                    AnalysisHistory.created_at >= month_start
+                )
+            )
+        )
+        month_analyses = month_result.scalar() or 0
+        
+        # Risk level breakdown
+        risk_breakdown_result = await db.execute(
+            select(
+                AnalysisHistory.risk_level,
+                func.count(AnalysisHistory.id).label('count')
+            )
+            .where(AnalysisHistory.user_id == user_id)
+            .group_by(AnalysisHistory.risk_level)
+        )
+        risk_breakdown = {row.risk_level: row.count for row in risk_breakdown_result}
+        
+        # Indicator type breakdown
+        type_breakdown_result = await db.execute(
+            select(
+                AnalysisHistory.indicator_type,
+                func.count(AnalysisHistory.id).label('count')
+            )
+            .where(AnalysisHistory.user_id == user_id)
+            .group_by(AnalysisHistory.indicator_type)
+        )
+        type_breakdown = {row.indicator_type: row.count for row in type_breakdown_result}
+        
+        # Recent high-risk findings
+        high_risk_result = await db.execute(
+            select(func.count(AnalysisHistory.id))
+            .where(
+                and_(
+                    AnalysisHistory.user_id == user_id,
+                    AnalysisHistory.risk_level.in_(['high', 'critical']),
+                    AnalysisHistory.created_at >= month_start
+                )
+            )
+        )
+        high_risk_findings = high_risk_result.scalar() or 0
+        
+        return {
+            "total_analyses": total_analyses,
+            "today_analyses": today_analyses,
+            "week_analyses": week_analyses,
+            "month_analyses": month_analyses,
+            "risk_breakdown": risk_breakdown,
+            "type_breakdown": type_breakdown,
+            "high_risk_findings_this_month": high_risk_findings
+        }
+    
+    async def get_user_analysis_history_filtered(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        limit: int = 50,
+        offset: int = 0,
+        search: Optional[str] = None,
+        indicator_type: Optional[str] = None,
+        threat_level: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None
+    ) -> List[AnalysisHistory]:
+        """Get user's analysis history with filtering options."""
+        query = select(AnalysisHistory).where(AnalysisHistory.user_id == user_id)
+        
+        # Apply filters
+        if search:
+            query = query.where(AnalysisHistory.indicator.ilike(f"%{search}%"))
+        
+        if indicator_type:
+            query = query.where(AnalysisHistory.indicator_type == indicator_type)
+            
+        if threat_level:
+            query = query.where(AnalysisHistory.risk_level == threat_level)
+            
+        if date_from:
+            try:
+                from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                query = query.where(AnalysisHistory.created_at >= from_date)
+            except ValueError:
+                pass  # Invalid date format, ignore filter
+                
+        if date_to:
+            try:
+                to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                query = query.where(AnalysisHistory.created_at <= to_date)
+            except ValueError:
+                pass  # Invalid date format, ignore filter
+        
+        # Order, limit, and offset
+        query = query.order_by(desc(AnalysisHistory.created_at)).limit(limit).offset(offset)
+        
+        result = await db.execute(query)
+        return result.scalars().all()
+
+    async def get_user_analysis_count_filtered(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        search: Optional[str] = None,
+        indicator_type: Optional[str] = None,
+        threat_level: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None
+    ) -> int:
+        """Get total count of user's analyses with filtering options."""
+        from sqlalchemy import func
+        
+        query = select(func.count(AnalysisHistory.id)).where(AnalysisHistory.user_id == user_id)
+        
+        # Apply same filters as history method
+        if search:
+            query = query.where(AnalysisHistory.indicator.ilike(f"%{search}%"))
+        
+        if indicator_type:
+            query = query.where(AnalysisHistory.indicator_type == indicator_type)
+            
+        if threat_level:
+            query = query.where(AnalysisHistory.risk_level == threat_level)
+            
+        if date_from:
+            try:
+                from_date = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+                query = query.where(AnalysisHistory.created_at >= from_date)
+            except ValueError:
+                pass
+                
+        if date_to:
+            try:
+                to_date = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                query = query.where(AnalysisHistory.created_at <= to_date)
+            except ValueError:
+                pass
+        
+        result = await db.execute(query)
+        return result.scalar() or 0
 
 
 # Global database service instance

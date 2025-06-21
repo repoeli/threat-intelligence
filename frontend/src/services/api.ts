@@ -11,9 +11,7 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-    });
-
-    // Request interceptor to add auth token
+    });    // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
         const token = localStorage.getItem('auth_token');
@@ -74,9 +72,8 @@ class ApiClient {
   async logout(): Promise<void> {
     await this.client.post('/auth/logout');
   }
-
   async getCurrentUser(): Promise<User> {
-    const response = await this.client.get('/auth/me');
+    const response = await this.client.get('/auth/profile');
     return response.data;
   }
   // Analysis endpoints
@@ -84,14 +81,13 @@ class ApiClient {
     const response = await this.client.post('/analyze', request);
     return response.data;
   }
-
   async getAnalysisHistory(
-    page: number = 1,
-    size: number = 20,
+    limit: number = 20,
+    offset: number = 0,
     filters?: any
   ): Promise<AnalysisHistory> {
-    const params = { page, size, ...filters };
-    const response = await this.client.get('/auth/history', { params });
+    const params = { limit, offset, ...filters };
+    const response = await this.client.get('/analyze/history', { params });
     return response.data;
   }
 
@@ -102,7 +98,7 @@ class ApiClient {
 
   // Dashboard endpoints
   async getDashboardStats(): Promise<DashboardStats> {
-    const response = await this.client.get('/dashboard/stats');
+    const response = await this.client.get('/analyze/stats');
     return response.data;
   }
 

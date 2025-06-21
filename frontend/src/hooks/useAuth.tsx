@@ -52,16 +52,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (credentials: LoginRequest) => {
     try {
       setIsLoading(true);
-      setError(null);
+      setError(null);      const response: any = await apiClient.login(credentials);
       
-      const response: AuthResponse = await apiClient.login(credentials);
+      console.log('🔐 Login response:', response);
+      
+      // Handle both old and new response formats
+      const access_token = response.access_token || response.token?.access_token;
+      const user = response.user;
+      
+      if (!access_token) {
+        throw new Error('No access token received from server');
+      }
       
       // Store token and user data
-      localStorage.setItem('auth_token', response.access_token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('auth_token', access_token);
+      localStorage.setItem('user', JSON.stringify(user));
       
-      setUser(response.user);
-    } catch (error: any) {
+      console.log('✅ Token stored:', access_token.substring(0, 20) + '...');
+      console.log('✅ User stored:', user);
+      
+      setUser(response.user);    } catch (error: any) {
+      console.error('❌ Login error:', error);
       setError(error.detail || 'Login failed');
       throw error;
     } finally {
@@ -74,14 +85,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
       setError(null);
       
-      const response: AuthResponse = await apiClient.register(userData);
+      const response: any = await apiClient.register(userData);
+      
+      // Handle both old and new response formats
+      const access_token = response.access_token || response.token?.access_token;
+      const user = response.user;
+      
+      if (!access_token) {
+        throw new Error('No access token received from server');
+      }
       
       // Store token and user data
-      localStorage.setItem('auth_token', response.access_token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      
-      setUser(response.user);
+      localStorage.setItem('auth_token', access_token);
+      localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
     } catch (error: any) {
+      console.error('❌ Registration error:', error);
       setError(error.detail || 'Registration failed');
       throw error;
     } finally {
