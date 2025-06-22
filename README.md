@@ -46,6 +46,15 @@ JWT_SECRET_KEY=your_secret_key_here
 python ../start_server.py
 ```
 
+### Initialize Database
+Run the migration script once to create the SQLite database and seed a default admin user.
+
+```bash
+python migrate_to_db.py
+```
+
+Set `DATABASE_URL` in `.env` before running the script if you want to use PostgreSQL.
+
 ### Frontend Setup
 ```bash
 cd frontend
