@@ -129,6 +129,21 @@ pytest tests/
 cd frontend && npm test
 ```
 
+### Code Quality with Pre-commit
+This project uses [pre-commit](https://pre-commit.com/) to run Black, isort,
+Flake8, and mypy automatically.
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+Run all hooks manually with:
+
+```bash
+pre-commit run --all-files
+```
+
 ## 🔒 Security Features
 
 - JWT token-based authentication
