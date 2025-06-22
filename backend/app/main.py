@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from dotenv import load_dotenv
+from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -35,7 +36,8 @@ from .utils.indicator import determine_indicator_type
 from .auth import get_current_user, get_current_user_optional, require_medium, require_plus, check_rate_limit
 from .database import init_database, close_database, get_db_session
 
-load_dotenv()
+# Load environment variables from the project root `.env` file, if present
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 # Environment variables
 ABUSE_KEY = os.getenv("ABUSEIPDB_API_KEY")

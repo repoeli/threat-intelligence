@@ -38,9 +38,9 @@ A comprehensive threat intelligence analysis platform with modern web interface,
 cd backend
 pip install -r requirements.txt
 
-# Create .env file with your API keys
-VIRUSTOTAL_API_KEY=your_vt_key_here
-JWT_SECRET_KEY=your_secret_key_here
+# Copy example environment file and add your keys
+cp ../.env.example ../.env
+# then edit `.env` and fill in the required values
 
 # Start backend
 python ../start_server.py
@@ -72,6 +72,12 @@ docker run -d --name threat-intel -p 8686:8686 --env-file backend/.env threat-in
 ## 🔧 Configuration
 
 ### Environment Variables
+The backend reads variables from a `.env` file using `python-dotenv`.
+Start by copying `.env.example` and filling in your secrets:
+```bash
+cp .env.example .env
+```
+Key values include:
 ```bash
 # Required
 VIRUSTOTAL_API_KEY=your_virustotal_api_key
