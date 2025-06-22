@@ -5,6 +5,7 @@ import pytest
 import httpx
 from datetime import datetime, UTC
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 from unittest.mock import patch, AsyncMock
 from backend.app.main import app
 
@@ -107,7 +108,7 @@ class TestComprehensiveEndpoints:
         """Test that VirusTotal endpoints are available"""
         test_data = {
             "/api/virustotal": {
-                "name": "get_ip_report", 
+                "name": "get_ip_report",
                 "path_params": {"ip": "8.8.8.8"}
             },
             "/api/virustotal/file": {"indicator": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
@@ -116,12 +117,16 @@ class TestComprehensiveEndpoints:
             "/api/virustotal/url": {"indicator": "https://www.google.com"}
         }
         
-        for endpoint, data in test_data.items():
-            response = self.client.post(endpoint, json=data)
-            # Should not be 404 (endpoint exists)
-            assert response.status_code != 404
-            # Should require authentication or return validation error
-            assert response.status_code in [401, 422, 400, 502]
+        with patch(
+            "backend.app.main.vt_call",
+            new=AsyncMock(side_effect=HTTPException(status_code=401, detail="Unauthorized")),
+        ):
+            for endpoint, data in test_data.items():
+                response = self.client.post(endpoint, json=data)
+                # Should not be 404 (endpoint exists)
+                assert response.status_code != 404
+                # Should require authentication or return validation error
+                assert response.status_code in [401, 422, 400, 502]
 
 
 class TestIndicatorValidation:
