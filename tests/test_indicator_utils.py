@@ -4,6 +4,8 @@ Test cases for indicator type detection utility
 import pytest
 from fastapi import HTTPException
 from backend.app.utils.indicator import determine_indicator_type
+from hypothesis import given, strategies as st
+from hypothesis import provisional as stp
 
 
 class TestIndicatorUtils:
@@ -106,6 +108,30 @@ class TestIndicatorUtils:
         """Test that hashes with invalid characters are rejected"""
         with pytest.raises(HTTPException):
             determine_indicator_type("g" * 32)  # Invalid hex character
-            
+
         with pytest.raises(HTTPException):
             determine_indicator_type("5d41402abc4b2a76b9719d911017c59z")  # Invalid char at end
+
+
+class TestIndicatorUtilsHypothesis:
+    """Property-based tests for indicator detection"""
+
+    @given(st.ip_addresses(v=4).map(str))
+    def test_random_ipv4_detection(self, ip):
+        assert determine_indicator_type(ip) == "ip"
+
+    @given(stp.urls().filter(lambda u: u.lower().startswith(("http://", "https://"))))
+    def test_random_url_detection(self, url):
+        assert determine_indicator_type(url) == "url"
+
+    @given(stp.domains().filter(lambda d: d.split(".")[-1].isalpha()))
+    def test_random_domain_detection(self, domain):
+        assert determine_indicator_type(domain) == "domain"
+
+    @given(
+        st.sampled_from([32, 40, 64]).flatmap(
+            lambda n: st.text("0123456789abcdef", min_size=n, max_size=n)
+        )
+    )
+    def test_random_hash_detection(self, h):
+        assert determine_indicator_type(h) == "hash"
