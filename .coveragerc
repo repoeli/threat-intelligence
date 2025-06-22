@@ -1,0 +1,6 @@
+[run]
+omit =
+    backend/app/main.py
+    backend/app/clients/virustotal_client.py
+    backend/app/services/database_service.py
+    backend/app/services/auth_service.py
