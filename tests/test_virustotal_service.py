@@ -3,10 +3,17 @@ Test cases for VirusTotal service
 """
 import pytest
 import os
-from unittest.mock import patch, AsyncMock, Mock
+import json
+from unittest.mock import patch, AsyncMock, Mock, ANY
 from fastapi import HTTPException
 
-from backend.app.services.virustotal_service import vt_call, _get_vt_client, LIMITS
+from backend.app.services.virustotal_service import (
+    vt_call,
+    _get_vt_client,
+    LIMITS,
+    _make_cache_key,
+    CACHE_TTL,
+)
 from backend.app.clients.virustotal_client import APIError, RateLimitError, VirusTotalClient
 
 
@@ -204,6 +211,45 @@ class TestVirusTotalService:
                     params={"include_details": True},
                     json={"url": "https://example.com"}
                 )
+
+    @pytest.mark.asyncio
+    async def test_vt_call_caching(self):
+        """Repeated calls with same parameters should use cache."""
+        mock_response = {"data": {"id": "1.1.1.1"}}
+
+        with patch('backend.app.services.virustotal_service._r') as mock_redis:
+            with patch('backend.app.services.virustotal_service._get_vt_client') as mock_get_client:
+                mock_redis_instance = AsyncMock()
+                mock_redis_instance.incr.side_effect = [1, 2]
+                mock_redis_instance.expire.return_value = True
+                mock_redis_instance.get.side_effect = [None, json.dumps(mock_response)]
+                mock_redis.return_value = mock_redis_instance
+
+                mock_vt_client = AsyncMock()
+                mock_vt_client.call_endpoint.return_value = mock_response
+                mock_get_client.return_value = mock_vt_client
+
+                result1 = await vt_call(
+                    uid="user",
+                    tier="free",
+                    name="get_ip_report",
+                    path_params={"ip": "1.1.1.1"}
+                )
+
+                cache_key = _make_cache_key("get_ip_report", {"ip": "1.1.1.1"}, None, None)
+                mock_redis_instance.setex.assert_called_once_with(cache_key, CACHE_TTL, json.dumps(mock_response))
+                assert result1 == mock_response
+                assert mock_vt_client.call_endpoint.call_count == 1
+
+                result2 = await vt_call(
+                    uid="user",
+                    tier="free",
+                    name="get_ip_report",
+                    path_params={"ip": "1.1.1.1"}
+                )
+
+                assert result2 == mock_response
+                assert mock_vt_client.call_endpoint.call_count == 1
     
     @pytest.mark.asyncio
     async def test_redis_key_format(self):
