@@ -116,3 +116,5 @@ frontend/test_runner.sh
 frontend/vitest.config.simple.ts
 test_frontend_fixes.bat
 auth_status_check.md
+claude_desktop_config.json
+database_service.py.backup

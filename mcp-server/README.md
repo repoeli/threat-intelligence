@@ -1,13 +1,91 @@
-# Threat Intelligence MCP Server
+# 🛡️ Threat Intelligence MCP Server for Claude Desktop
 
-A Model Context Protocol (MCP) server that provides threat intelligence analysis capabilities to Claude Desktop.
+This MCP (Model Context Protocol) server connects your Threat Intelligence platform with Claude Desktop, enabling AI-powered security analysis directly in your Claude conversations.
 
-## Features
+## 🚀 Quick Start
 
-- 🔍 **Domain Analysis**: Comprehensive domain threat intelligence
-- 🌐 **IP Analysis**: IP address reputation and geolocation  
-- 🔗 **URL Analysis**: URL safety and reputation checking
-- ✅ **Domain Validation**: Check domain format and validity
+### 1. **Prerequisites**
+- ✅ Claude Desktop installed and running
+- ✅ Python 3.8+ with your threat intelligence backend
+- ✅ API Keys: VirusTotal, OpenAI
+- ✅ Docker containers running (PostgreSQL, Redis, API)
+
+### 2. **Installation** 
+```bash
+# Navigate to MCP server directory
+cd c:\threat-intelligence\mcp-server
+
+# Run automated setup
+python setup.py
+```
+
+### 3. **Manual Configuration (if needed)**
+```bash
+# Install requirements
+pip install -r requirements.txt
+
+# Copy config to Claude Desktop
+# Windows: %APPDATA%\Claude\claude_desktop_config.json
+# macOS: ~/Library/Application Support/Claude/claude_desktop_config.json
+```
+
+## 🔧 Configuration
+
+### **Claude Desktop Config** (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "threat-intelligence": {
+      "command": "python",
+      "args": ["C:\\threat-intelligence\\mcp-server\\server.py"],
+      "env": {
+        "VIRUSTOTAL_API_KEY": "your_vt_key_here",
+        "OPENAI_API_KEY": "your_openai_key_here",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "DATABASE_URL": "postgresql+asyncpg://vtproxy:changeme@localhost:5432/vtproxy"
+      }
+    }
+  }
+}
+```
+
+## �️ Available Tools
+
+### **Domain Analysis**
+```
+Claude: "Analyze domain google.com"
+```
+- ✅ Validates domain format
+- 🔍 Runs comprehensive threat analysis  
+- 📊 Provides threat scoring and reputation
+- 🌍 Includes geolocation and vendor results
+
+### **IP Address Analysis**
+```
+Claude: "Analyze IP 8.8.8.8"
+```
+- 🔍 Full IP threat intelligence
+- 📍 Geolocation and ISP information
+- ⚠️ Threat level assessment
+- �️ Security recommendations
+
+### **URL Analysis**
+```
+Claude: "Analyze URL https://example.com"
+```
+- 🌐 Complete URL analysis
+- 🔗 Link reputation checking
+- 🚨 Malware detection
+- 📊 Risk assessment
+
+### **AI-Enhanced Analysis**
+```
+Claude: "What do you know about this domain?"
+```
+- 🤖 GPT-4o-mini expert analysis
+- 🧠 Contextual threat intelligence
+- 📚 Campaign and malware family insights
+- 🛡️ Defense recommendations
 - 🛡️ **Multi-Source Intelligence**: VirusTotal integration with extensible architecture
 
 ## Installation

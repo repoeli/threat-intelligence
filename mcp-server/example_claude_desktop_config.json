@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "threat-intelligence": {
+      "command": "C:\\threat-intelligence\\.venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\threat-intelligence\\mcp-server\\server.py"
+      ],
+      "env": {
+        "VIRUSTOTAL_API_KEY": "af2903537237bbb72f92da9d47",
+        "OPENAI_API_KEY": "sk-proj-t2UhrIxexk-bjJ6FB97VTDbT3BlbkSLxhP_d7XXO1k8qeVj_f-5kL7Sz",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "DATABASE_URL": "postgresql+asyncpg://vtproxy:changeme@localhost:5432/vtproxy"
+      }
+    }
+  }
+}
