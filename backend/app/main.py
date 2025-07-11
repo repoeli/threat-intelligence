@@ -2,7 +2,7 @@
 # ----------------------------------------------------------------------------
 from __future__ import annotations
 
-import asyncio, base64, json, os
+import asyncio, base64, json, os, logging
 from datetime import datetime, UTC
 from typing import Any, Dict, Optional
 from contextlib import asynccontextmanager
@@ -36,6 +36,9 @@ from .auth import get_current_user, get_current_user_optional, require_medium, r
 from .database import init_database, close_database, get_db_session
 
 load_dotenv()
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Environment variables
 ABUSE_KEY = os.getenv("ABUSEIPDB_API_KEY")
@@ -659,17 +662,21 @@ async def analyze_enhanced(
     
     # Store result in database if user is authenticated (not anonymous)
     if ident["user_id"] != "anonymous":
-        from .utils.indicator import determine_indicator_type
-        from .services.database_service import db_service
-        
-        indicator_type = determine_indicator_type(req.indicator)
-        await db_service.store_analysis_result(
-            db=db,
-            user_id=int(ident["user_id"]),
-            indicator=req.indicator,
-            indicator_type=indicator_type.value,
-            result=result
-        )
+        try:
+            from .utils.indicator import determine_indicator_type
+            from .services.database_service import db_service
+            
+            indicator_type = determine_indicator_type(req.indicator)
+            await db_service.store_analysis_result(
+                db=db,
+                user_id=int(ident["user_id"]),
+                indicator=req.indicator,
+                indicator_type=indicator_type.value,
+                result=result
+            )
+        except Exception as db_error:
+            # Log the error but don't fail the analysis
+            logger.warning(f"Failed to store analysis result in database: {db_error}")
     
     return result
 

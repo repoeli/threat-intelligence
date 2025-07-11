@@ -18,12 +18,16 @@ PATTERNS = {
 def determine_indicator_type(indicator: str) -> str:
     ind = indicator.strip().lower()
     if PATTERNS["ip"].match(ind):
-        try: ipaddress.ip_address(ind); return "ip"
-        except ValueError: pass
+        try: 
+            ipaddress.ip_address(ind)
+            return "ip"
+        except ValueError: 
+            logger.warning("Invalid IP address format: %s", indicator)
+            raise HTTPException(400, f"Invalid IP address format: {indicator}. IP addresses must have 4 octets (e.g., 192.168.1.1)")
     for t, pat in PATTERNS.items():
         if t == "ip":
             continue
         if pat.match(ind):
             return t
     logger.warning("Unsupported indicator: %s", indicator)
-    raise HTTPException(400, f"Unsupported indicator: {indicator}")
+    raise HTTPException(400, f"Unsupported indicator format: {indicator}. Please enter a valid IP address, domain, URL, email, or hash.")
