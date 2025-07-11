@@ -71,7 +71,7 @@ jobs:
         DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
       run: |
         cd backend
-        pytest --cov=app --cov-report=xml --cov-report=html --cov-fail-under=85 --benchmark-skip
+        pytest --cov=app --cov-report=xml --cov-report=html --cov-fail-under=90 --benchmark-skip
     
     - name: Run performance benchmarks
       env:
