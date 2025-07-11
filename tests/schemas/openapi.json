@@ -1,0 +1,1779 @@
+{
+  "components": {
+    "schemas": {
+      "AnalysisMetadata": {
+        "description": "Analysis metadata and timestamps",
+        "properties": {
+          "analysis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unique analysis identifier",
+            "title": "Analysis Id"
+          },
+          "analyzed_at": {
+            "format": "date-time",
+            "title": "Analyzed At",
+            "type": "string"
+          },
+          "cached": {
+            "default": false,
+            "description": "Whether result was cached",
+            "title": "Cached",
+            "type": "boolean"
+          },
+          "processing_time_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Processing time in milliseconds",
+            "title": "Processing Time Ms"
+          },
+          "sources_used": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources Used",
+            "type": "array"
+          }
+        },
+        "title": "AnalysisMetadata",
+        "type": "object"
+      },
+      "AnalysisStatus": {
+        "enum": [
+          "pending",
+          "completed",
+          "failed",
+          "queued"
+        ],
+        "title": "AnalysisStatus",
+        "type": "string"
+      },
+      "BulkAnalysisRequest": {
+        "description": "Request model for bulk analysis",
+        "properties": {
+          "include_raw_data": {
+            "default": false,
+            "title": "Include Raw Data",
+            "type": "boolean"
+          },
+          "indicators": {
+            "description": "List of indicators to analyze",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Indicators",
+            "type": "array"
+          },
+          "priority": {
+            "default": "normal",
+            "description": "Analysis priority",
+            "title": "Priority",
+            "type": "string"
+          },
+          "subscription_level": {
+            "$ref": "#/components/schemas/SubscriptionTier",
+            "default": "free"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 30,
+            "title": "Timeout"
+          },
+          "user_id": {
+            "description": "User UUID",
+            "pattern": "^[a-f0-9\\-]{36}$",
+            "title": "User Id",
+            "type": "string"
+          },
+          "webhook_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Webhook for completion notification",
+            "title": "Webhook Url"
+          }
+        },
+        "required": [
+          "indicators",
+          "user_id"
+        ],
+        "title": "BulkAnalysisRequest",
+        "type": "object"
+      },
+      "BulkAnalysisResponse": {
+        "description": "Response model for bulk analysis",
+        "properties": {
+          "estimated_completion": {
+            "description": "Estimated completion time",
+            "format": "date-time",
+            "title": "Estimated Completion",
+            "type": "string"
+          },
+          "job_id": {
+            "description": "Bulk analysis job ID",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status_url": {
+            "description": "URL to check job status",
+            "title": "Status Url",
+            "type": "string"
+          },
+          "total_indicators": {
+            "description": "Total number of indicators",
+            "title": "Total Indicators",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "total_indicators",
+          "estimated_completion",
+          "status_url"
+        ],
+        "title": "BulkAnalysisResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "IndicatorRequest": {
+        "properties": {
+          "include_raw_data": {
+            "default": false,
+            "description": "Include raw API responses",
+            "title": "Include Raw Data",
+            "type": "boolean"
+          },
+          "indicator": {
+            "description": "IoC to analyse",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Indicator",
+            "type": "string"
+          },
+          "subscription_level": {
+            "$ref": "#/components/schemas/SubscriptionTier",
+            "default": "free"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 30,
+            "description": "Analysis timeout in seconds",
+            "title": "Timeout"
+          },
+          "user_id": {
+            "description": "User UUID",
+            "pattern": "^[a-f0-9\\-]{36}$",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator",
+          "user_id"
+        ],
+        "title": "IndicatorRequest",
+        "type": "object"
+      },
+      "IndicatorType": {
+        "enum": [
+          "ip",
+          "domain",
+          "url",
+          "hash",
+          "email"
+        ],
+        "title": "IndicatorType",
+        "type": "string"
+      },
+      "SimpleIndicatorRequest": {
+        "description": "Simple indicator request without user requirements",
+        "properties": {
+          "include_raw_data": {
+            "default": false,
+            "description": "Include raw API responses",
+            "title": "Include Raw Data",
+            "type": "boolean"
+          },
+          "indicator": {
+            "description": "IoC to analyse",
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Indicator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "indicator"
+        ],
+        "title": "SimpleIndicatorRequest",
+        "type": "object"
+      },
+      "SubscriptionTier": {
+        "enum": [
+          "free",
+          "medium",
+          "plus",
+          "admin"
+        ],
+        "title": "SubscriptionTier",
+        "type": "string"
+      },
+      "ThreatIntelligenceResult": {
+        "description": "Enhanced threat intelligence analysis result",
+        "properties": {
+          "categories": {
+            "description": "Threat categories",
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "detection_ratio": {
+            "default": "0/0",
+            "description": "Detections vs total engines",
+            "title": "Detection Ratio",
+            "type": "string"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "First seen timestamp",
+            "title": "First Seen"
+          },
+          "geolocation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Geographic information",
+            "title": "Geolocation"
+          },
+          "indicator": {
+            "description": "The analyzed indicator",
+            "title": "Indicator",
+            "type": "string"
+          },
+          "indicator_type": {
+            "$ref": "#/components/schemas/IndicatorType",
+            "description": "Type of indicator"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Last seen timestamp",
+            "title": "Last Seen"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/AnalysisMetadata",
+            "description": "Analysis metadata"
+          },
+          "raw_responses": {
+            "additionalProperties": true,
+            "description": "Raw API responses",
+            "title": "Raw Responses",
+            "type": "object"
+          },
+          "reputation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reputation category",
+            "title": "Reputation"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AnalysisStatus",
+            "description": "Analysis status"
+          },
+          "tags": {
+            "description": "Associated tags",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "threat_score": {
+            "$ref": "#/components/schemas/ThreatScore",
+            "description": "Unified threat scoring"
+          },
+          "vendor_results": {
+            "items": {
+              "$ref": "#/components/schemas/VendorResult"
+            },
+            "title": "Vendor Results",
+            "type": "array"
+          },
+          "whois_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "WHOIS information",
+            "title": "Whois Data"
+          }
+        },
+        "required": [
+          "indicator",
+          "indicator_type",
+          "status",
+          "threat_score",
+          "metadata"
+        ],
+        "title": "ThreatIntelligenceResult",
+        "type": "object"
+      },
+      "ThreatLevel": {
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low",
+          "benign"
+        ],
+        "title": "ThreatLevel",
+        "type": "string"
+      },
+      "ThreatScore": {
+        "description": "Unified threat scoring model",
+        "properties": {
+          "confidence": {
+            "description": "Confidence in the score",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "factors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Contributing factors",
+            "title": "Factors",
+            "type": "object"
+          },
+          "overall_score": {
+            "description": "Overall threat score (0-1)",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Overall Score",
+            "type": "number"
+          },
+          "threat_level": {
+            "$ref": "#/components/schemas/ThreatLevel",
+            "description": "Categorical threat level"
+          }
+        },
+        "required": [
+          "overall_score",
+          "confidence",
+          "threat_level"
+        ],
+        "title": "ThreatScore",
+        "type": "object"
+      },
+      "UserLogin": {
+        "description": "User login request model",
+        "example": {
+          "email": "user@example.com",
+          "password": "SecurePassword123!"
+        },
+        "properties": {
+          "email": {
+            "description": "User email address",
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "description": "User password",
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UserLogin",
+        "type": "object"
+      },
+      "UserRegistration": {
+        "example": {
+          "email": "user@example.com",
+          "password": "SecurePassword123!",
+          "subscription_level": "free"
+        },
+        "properties": {
+          "email": {
+            "description": "User email address",
+            "format": "email",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "description": "User password",
+            "minLength": 8,
+            "title": "Password",
+            "type": "string"
+          },
+          "subscription_level": {
+            "$ref": "#/components/schemas/SubscriptionTier",
+            "default": "free"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UserRegistration",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VendorResult": {
+        "description": "Individual vendor/engine analysis result",
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Threat category",
+            "title": "Category"
+          },
+          "engine_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Engine version",
+            "title": "Engine Version"
+          },
+          "result": {
+            "description": "Detection result",
+            "title": "Result",
+            "type": "string"
+          },
+          "vendor": {
+            "description": "Vendor name",
+            "title": "Vendor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "result"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      },
+      "VizResponse": {
+        "properties": {
+          "analysis_metadata": {
+            "additionalProperties": true,
+            "title": "Analysis Metadata",
+            "type": "object"
+          },
+          "charts": {
+            "additionalProperties": true,
+            "title": "Charts",
+            "type": "object"
+          },
+          "summary_markdown": {
+            "title": "Summary Markdown",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/ThreatLevel"
+          }
+        },
+        "required": [
+          "summary_markdown",
+          "charts",
+          "verdict"
+        ],
+        "title": "VizResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "Advanced threat intelligence analysis platform",
+    "title": "Threat Intelligence API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/analyze": {
+      "post": {
+        "description": "Enhanced unified threat intelligence analysis",
+        "operationId": "analyze_enhanced_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimpleIndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Enhanced",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/analyze/batch": {
+      "post": {
+        "description": "Analyze multiple indicators in batch",
+        "operationId": "analyze_batch_analyze_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Request",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Batch",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/analyze/batch/premium": {
+      "post": {
+        "description": "Premium batch analysis (requires Medium+ subscription)",
+        "operationId": "analyze_batch_premium_analyze_batch_premium_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Batch Premium",
+        "tags": [
+          "premium-analysis"
+        ]
+      }
+    },
+    "/analyze/domain/{domain}": {
+      "post": {
+        "description": "Analyze domain",
+        "operationId": "analyze_domain_analyze_domain__domain__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Domain",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/analyze/enterprise": {
+      "post": {
+        "description": "Enterprise threat intelligence analysis (requires Plus+ subscription)",
+        "operationId": "analyze_enterprise_analyze_enterprise_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimpleIndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Enterprise",
+        "tags": [
+          "enterprise-analysis"
+        ]
+      }
+    },
+    "/analyze/hash/{hash}": {
+      "post": {
+        "description": "Analyze file hash",
+        "operationId": "analyze_hash_analyze_hash__hash__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hash",
+            "required": true,
+            "schema": {
+              "title": "Hash",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Hash",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/analyze/history": {
+      "get": {
+        "description": "Get user's analysis history with filtering options (requires authentication)",
+        "operationId": "get_analysis_history_analyze_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "indicator_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Indicator Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "threat_level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Threat Level"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Analysis History",
+        "tags": [
+          "user-analytics"
+        ]
+      }
+    },
+    "/analyze/ip/{ip}": {
+      "post": {
+        "description": "Analyze IP address",
+        "operationId": "analyze_ip_analyze_ip__ip__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ip",
+            "required": true,
+            "schema": {
+              "title": "Ip",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Ip",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/analyze/legacy": {
+      "post": {
+        "description": "Legacy analysis endpoint with raw response format",
+        "operationId": "analyze_legacy_analyze_legacy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Legacy",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/analyze/premium": {
+      "post": {
+        "description": "Premium threat intelligence analysis (requires Medium+ subscription)",
+        "operationId": "analyze_premium_analyze_premium_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimpleIndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Premium",
+        "tags": [
+          "premium-analysis"
+        ]
+      }
+    },
+    "/analyze/stats": {
+      "get": {
+        "description": "Get user's analysis statistics (requires authentication)",
+        "operationId": "get_user_analysis_stats_analyze_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get User Analysis Stats",
+        "tags": [
+          "user-analytics"
+        ]
+      }
+    },
+    "/analyze/url/{url}": {
+      "post": {
+        "description": "Analyze URL",
+        "operationId": "analyze_url_analyze_url__url__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "url",
+            "required": true,
+            "schema": {
+              "title": "Url",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThreatIntelligenceResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Url",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/api/virustotal": {
+      "post": {
+        "description": "Generic VirusTotal API proxy",
+        "operationId": "vt_generic_api_virustotal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "title": "Body",
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vt Generic",
+        "tags": [
+          "virustotal"
+        ]
+      }
+    },
+    "/api/virustotal/domain": {
+      "post": {
+        "description": "VirusTotal domain analysis",
+        "operationId": "vt_domain_api_virustotal_domain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vt Domain",
+        "tags": [
+          "virustotal"
+        ]
+      }
+    },
+    "/api/virustotal/file": {
+      "post": {
+        "description": "VirusTotal file analysis",
+        "operationId": "vt_file_api_virustotal_file_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vt File",
+        "tags": [
+          "virustotal"
+        ]
+      }
+    },
+    "/api/virustotal/ip": {
+      "post": {
+        "description": "VirusTotal IP analysis",
+        "operationId": "vt_ip_api_virustotal_ip_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vt Ip",
+        "tags": [
+          "virustotal"
+        ]
+      }
+    },
+    "/api/virustotal/url": {
+      "post": {
+        "description": "VirusTotal URL analysis",
+        "operationId": "vt_url_api_virustotal_url_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vt Url",
+        "tags": [
+          "virustotal"
+        ]
+      }
+    },
+    "/api/visualize": {
+      "post": {
+        "description": "Enhanced visualization with improved error handling",
+        "operationId": "visualize_api_visualize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndicatorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VizResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Visualize",
+        "tags": [
+          "visualize"
+        ]
+      }
+    },
+    "/auth/history": {
+      "get": {
+        "description": "Get user's analysis history (requires authentication)",
+        "operationId": "get_analysis_history_auth_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Analysis History",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Authenticate user and return access token",
+        "operationId": "login_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Login Auth Login Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/profile": {
+      "get": {
+        "description": "Get current user profile (requires authentication)",
+        "operationId": "get_profile_auth_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Get Profile Auth Profile Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Profile",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "description": "Register a new user",
+        "operationId": "register_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegistration"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Register Auth Register Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/auth/stats": {
+      "get": {
+        "description": "Get authentication service statistics (plus users only)",
+        "operationId": "get_auth_stats_auth_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Auth Stats",
+        "tags": [
+          "authentication"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Enhanced health check endpoint",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/status": {
+      "get": {
+        "description": "System status endpoint",
+        "operationId": "system_status_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "System Status",
+        "tags": [
+          "monitoring"
+        ]
+      }
+    }
+  }
+}
