@@ -227,4 +227,4 @@ class TestMainEndpoints:
         assert len(urlscan_routes) == 0, "URLScan endpoints should be removed"
         
         response = self.client.get("/api/urlscan/result/test_id")
-        assert response.status_code != 404  # Endpoint exists
+        assert response.status_code == 404  # Endpoint should not exist

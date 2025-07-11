@@ -114,7 +114,9 @@ class TestAuthDependencies:
                 await get_api_key_user("wrong_key")
             
             assert exc_info.value.status_code == 401
-            assert "Invalid API key" in str(exc_info.value.detail)    @pytest.mark.asyncio
+            assert "Invalid API key" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
     async def test_check_rate_limit(self):
         """Test rate limit checking"""
         mock_user = {
