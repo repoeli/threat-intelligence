@@ -95,6 +95,7 @@ def mock_vt(monkeypatch):
             return {"data": {"id": "dummy_id", "type": "generic", "attributes": {"last_analysis_stats": {"malicious": 0}}}}
 
     monkeypatch.setattr("backend.app.services.virustotal_service.vt_call", _stub_vt_call)
+    monkeypatch.setattr("backend.app.main.vt_call", _stub_vt_call)
     return _stub_vt_call
 
 @pytest.fixture
