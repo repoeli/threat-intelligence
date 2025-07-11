@@ -94,3 +94,25 @@ setup-*.bat
 setup-*.sh
 restart-*.bat
 backups/
+
+# Development & Test Files
+**/test_*.py
+**/debug_*.py
+**/clear_*.py
+**/reset_*.py
+**/run_*.py
+**/validate_*.py
+**/security_validation.py
+**/*_backup.py
+**/*_fixed.tsx
+**/AnalysisPage_Enhanced.tsx
+**/HistoryPage_Enhanced.tsx
+frontend/src/test/
+frontend/debug_tests.cmd
+frontend/run_tests.bat
+frontend/run_tests.cmd
+frontend/stop_and_test.cmd
+frontend/test_runner.sh
+frontend/vitest.config.simple.ts
+test_frontend_fixes.bat
+auth_status_check.md
