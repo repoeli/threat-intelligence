@@ -55,11 +55,7 @@ jobs:
         pip install pytest-cov pytest-benchmark
     
     - name: Run code quality checks
-      run: |
-        black --check backend/
-        isort --check-only backend/
-        flake8 backend/
-        mypy backend/ --ignore-missing-imports
+      run: pre-commit run --all-files
     
     - name: Run tests with coverage
       env:
